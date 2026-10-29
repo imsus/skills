@@ -4,7 +4,7 @@ import { loadedCategories, type LoadedCategory, type Repo, type Skill } from "./
 /** The catalog's path inside each catalog destination skill folder. */
 export const CATALOG_FILE = "references/catalog.md";
 
-const HEADER = "| Skill | Category | Description | Source |\n| --- | --- | --- | --- |";
+const HEADER = "| Skill | Category | Description | Upstream |\n| --- | --- | --- | --- |";
 
 /** A table cell: one line, with `|` escaped. */
 const cell = (text: string) => text.replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|").trim();
@@ -15,7 +15,8 @@ const description = (skill: Skill) =>
     onSome: (md) => md.description ?? "",
   });
 
-const source = (skill: Skill) => {
+/** The Upstream column: `own`, or `fork of <owner/name>`. */
+const upstream = (skill: Skill) => {
   if (skill._tag === "Own") return "own";
   return Result.match(skill.upstream, {
     onSuccess: (u) => `fork of ${u.repo}`,
@@ -41,7 +42,7 @@ function section(cat: LoadedCategory): string {
   const about = cat.meta.description;
   const intro = typeof about === "string" ? `${cell(about)}\n\n` : "";
   const skillFlags = cat.skills.map((s) => ` --skill ${s.name}`).join("");
-  const rows = cat.skills.map((s) => `| ${s.name} | ${cat.name} | ${cell(description(s))} | ${source(s)} |`);
+  const rows = cat.skills.map((s) => `| ${s.name} | ${cat.name} | ${cell(description(s))} | ${upstream(s)} |`);
   return [
     `## ${cat.name}\n\n${intro}\`\`\``,
     `/plugin install ${cat.name}@imsus`,

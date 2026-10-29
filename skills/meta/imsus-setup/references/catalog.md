@@ -11,7 +11,7 @@ Skills that set up, guide and improve a project's workflow.
 npx skills add imsus/skills --skill imsus-ask --skill imsus-retro --skill imsus-setup
 ```
 
-| Skill | Category | Description | Source |
+| Skill | Category | Description | Upstream |
 | --- | --- | --- | --- |
 | imsus-ask | meta | Tells you what to do next in this project's workflow (where to start a task, whether finished work is really done, what's left) and ends with the exact Next prompt to send. | own |
 | imsus-retro | meta | Conduct a retrospective on a coding session: inspect what went wrong, route each finding to the strongest fix, prove structural fixes, and record them so the next retro can score them. | fork of mattpocock/skills |
