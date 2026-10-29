@@ -1,0 +1,14 @@
+{
+  "name": "imsus-skills",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "bun run src/cli.ts check",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.0"
+  }
+}
