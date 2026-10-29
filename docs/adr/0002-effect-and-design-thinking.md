@@ -76,7 +76,9 @@ bun run src/cli.ts manifest [--check]
       → parseSkillMd (per skill)
     → generatedFiles
       → generateManifest
-      → generateCatalog (one copy per catalog destination: imsus-ask, imsus-setup)
+        → loadedCategories                     // skills sorted by name
+      → generateCatalog (one copy per META_SKILLS.catalogDestinations: imsus-ask, imsus-setup)
+        → loadedCategories
       → sharedReferenceCopies
         → RepoFs.layer(cwd)                    // readText of imsus-setup/references/{workflows,harness,curated-skills}.md
     → RepoFs.layer(cwd)                        // readText / writeText of each generated file
@@ -94,7 +96,9 @@ runCli(["manifest"])
       → parseSkillMd (per skill)
     → generatedFiles
       → generateManifest
+        → loadedCategories
       → generateCatalog
+        → loadedCategories
       → sharedReferenceCopies
         → RepoFs.layer(throwaway tree)
     → RepoFs.layer(throwaway tree)

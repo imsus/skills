@@ -1,5 +1,6 @@
 import { Effect, Option } from "effect";
 import type { RepoFsError } from "./errors";
+import type { GeneratedFile } from "./generated-file";
 import { META_SKILLS } from "./meta-skills";
 import { allSkills, type Repo } from "./repo";
 import { RepoFs } from "./repo-fs";
@@ -15,7 +16,7 @@ export const SHARED_REFERENCES = [
  * One copy in imsus-ask per shared reference that exists in imsus-setup,
  * holding imsus-setup's exact text. None when either skill is absent.
  */
-export const sharedReferenceCopies = (repo: Repo): Effect.Effect<{ path: string; text: string }[], RepoFsError, RepoFs> =>
+export const sharedReferenceCopies = (repo: Repo): Effect.Effect<GeneratedFile[], RepoFsError, RepoFs> =>
   Effect.gen(function* () {
     const fs = yield* RepoFs;
     const skills = allSkills(repo);

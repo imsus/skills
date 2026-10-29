@@ -85,6 +85,20 @@ export type Repo = typeof Repo.Type;
 
 export const isFork = (skill: Skill): skill is ForkSkill => skill._tag === "Fork";
 
+/** A category whose `category.json` loaded. */
+export type LoadedCategory = Category & { meta: Extract<CategoryMeta, { _tag: "Loaded" }> };
+
+/**
+ * The categories whose metadata loaded, each with its skills sorted by name.
+ * The generated files cover only these; the category rules report the rest.
+ */
+export const loadedCategories = (repo: Repo): LoadedCategory[] =>
+  repo.categories.flatMap((cat) =>
+    cat.meta._tag === "Loaded" ? [{ ...cat, meta: cat.meta, skills: [...cat.skills].sort(byName) }] : [],
+  );
+
+const byName = (a: Skill, b: Skill) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+
 /** Every skill folder in the repo, category by category. */
 export const allSkills = (repo: Repo): Skill[] => repo.categories.flatMap((c) => c.skills);
 

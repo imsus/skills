@@ -3,8 +3,9 @@ import type { Command } from "../command";
 import { reportFsError } from "../report";
 import { CATALOG_FILE, generateCatalog } from "../catalog";
 import { META_SKILLS } from "../meta-skills";
-import { allSkills, readRepo, type Repo } from "../repo";
+import { allSkills, loadedCategories, readRepo, type Repo } from "../repo";
 import type { RepoFsError } from "../errors";
+import type { GeneratedFile } from "../generated-file";
 import { RepoFs } from "../repo-fs";
 import { sharedReferenceCopies } from "../shared-references";
 import { Stdio } from "../stdio";
@@ -27,13 +28,12 @@ interface Plugin {
  */
 export function generateManifest(repo: Repo): string {
   const plugins: Plugin[] = [];
-  for (const cat of repo.categories) {
-    if (cat.meta._tag !== "Loaded") continue;
+  for (const cat of loadedCategories(repo)) {
     const { description, version } = cat.meta;
     const plugin: Plugin = { name: cat.name, source: "./", skills: [] };
     if (typeof description === "string") plugin.description = description;
     if (typeof version === "string") plugin.version = version;
-    plugin.skills = cat.skills.map((s) => `./${s.path}`).sort();
+    plugin.skills = cat.skills.map((s) => `./${s.path}`);
     plugins.push(plugin);
   }
   // Keys are written in alphabetical order; JSON.stringify keeps insertion order.
@@ -50,12 +50,6 @@ export function generateManifest(repo: Repo): string {
     })),
   };
   return JSON.stringify(manifest, null, 2) + "\n";
-}
-
-/** A file `manifest` owns: its repo-relative path and the exact text it must hold. */
-export interface GeneratedFile {
-  path: string;
-  text: string;
 }
 
 /**
