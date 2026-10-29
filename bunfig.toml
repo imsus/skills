@@ -1,0 +1,3 @@
+[test]
+# Subprocess CLI tests start a fresh bun each; under machine load that exceeds the 5s default.
+timeout = 30000
