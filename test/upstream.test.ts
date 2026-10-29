@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Effect } from "effect";
 import { parseUpstream } from "../src/upstream";
-import { SHA, upstreamMd } from "./helpers/tree";
+import { SHA, upstreamMd } from "./helpers/fork";
 
 const PATH = "skills/web/imsus-foo";
 

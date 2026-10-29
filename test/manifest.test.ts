@@ -1,7 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { buildTree, category, categoryWith, runCli, skillMd, type Tree } from "./helpers/tree";
+import { categoryWith } from "./helpers/manifest";
+import { buildTree, category, runCli, skillMd, type Tree } from "./helpers/tree";
 
 let tree: Tree;
 afterEach(() => tree?.cleanup());

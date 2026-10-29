@@ -6,7 +6,8 @@ import { CommitSha } from "../src/ids";
 import { UpstreamUnreachable } from "../src/errors";
 import { RepoFs } from "../src/repo-fs";
 import { captureStdio } from "./helpers/layers";
-import { buildTree, category, fork, runCli, SHA, upstreamMd, type Tree } from "./helpers/tree";
+import { fork, SHA, upstreamMd } from "./helpers/fork";
+import { buildTree, category, runCli, type Tree } from "./helpers/tree";
 
 let tree: Tree;
 afterEach(() => tree?.cleanup());
