@@ -5,7 +5,8 @@ The Bun/TypeScript tooling (`check`, `manifest`, `drift` and the `drift-issues` 
 ## Shapes
 
 - **Category** has a `CategoryMeta` of `Missing`, `Unreadable` or `Loaded`. Malformed content is data, never an error, because the check rules report it.
-- **Skill** is `Own` or `Fork`. A `Fork` carries the text of its `UPSTREAM.md`, so rules stay pure.
+- **IDs** are Schema brands: `SkillName`, `CategoryName`, `UpstreamRepo` (`owner/name`) and `CommitSha` (40 lowercase hex).
+- **Skill** is `Own` or `Fork`. A `Fork` carries its decoded `Upstream` or the `InvalidUpstream` problems, decoded once when the repo is read, so rules and `drift` stay pure. An `UPSTREAM.md` that is empty, a directory or unreadable is an `InvalidUpstream` problem on that fork, never a fatal error.
 - **Upstream** is `{ repo, path, sha }`, decoded from the `UPSTREAM.md` frontmatter with `sha` lowercased.
 - **Violation** is `{ path, rule, message }`.
 - **DriftOutcome** is `UpToDate`, `Drifted` or `Unreachable`. `drift --json` keeps its flat wire shape (`outcome` as `up-to-date`, `drifted` or `unreachable`, plus nullable fields), and a Schema transformation maps it to and from the tagged union. A wire entry that contradicts its outcome, such as `drifted` without a compare URL, fails to decode.
@@ -14,7 +15,7 @@ The Bun/TypeScript tooling (`check`, `manifest`, `drift` and the `drift-issues` 
 ## Errors
 
 - `UpstreamUnreachable` is an escape hatch for one fork. `drift` turns it into that fork's `Unreachable` outcome and goes on with the others.
-- `InvalidUpstream` is also per fork: `drift` warns on stderr and skips it, and `check` reports it as violations.
+- `InvalidUpstream` is also per fork: `drift` warns on stderr and skips it, and `check` reports it as violations. The `layout` rule reports a file where a category or skill folder is expected.
 - `RepoFsError` and `IssueClientError` are fatal for the command. Each command catches them in its `.pipe()` and exits 1.
 - A bug is a defect. It is never put in the E channel: a rule module that cannot be imported, or a report that fails to encode, dies.
 
@@ -38,9 +39,12 @@ bun run src/cli.ts check
   → command check
     → collectViolations
       → readRepo
-        → RepoFs.layer(cwd)
-      → rules (category, fork, skill)
-    → Stdio.layer
+        → RepoFs.layer(cwd)                    // node:fs: readdir, stat, readFile
+        → parseUpstream (per fork; InvalidUpstream kept on the Fork as data)
+      → loadRules                              // readdirSync + import of check/rules, found from the module's own path
+      → rules (category, fork, layout, skill)
+    → reportFsError (RepoFsError → stderr, exit 1)
+    → Stdio.layer                              // console
 ```
 
 Tests:
@@ -51,7 +55,9 @@ runCli(["check"])
     → collectViolations
       → readRepo
         → RepoFs.layer(throwaway tree)
-      → rules (category, fork, skill)
+        → parseUpstream (per fork)
+      → loadRules
+      → rules (category, fork, layout, skill)
     → Stdio.layer
 ```
 
@@ -63,10 +69,11 @@ Production:
 bun run src/cli.ts manifest [--check]
   → command manifest
     → readRepo
-      → RepoFs.layer(cwd)
+      → RepoFs.layer(cwd)                      // node:fs
     → generateManifest
-    → RepoFs.layer(cwd)
-    → Stdio.layer
+    → RepoFs.layer(cwd)                        // readText / writeText of the manifest
+    → reportFsError (RepoFsError → stderr, exit 1)
+    → Stdio.layer                              // console
 ```
 
 Tests:
@@ -90,13 +97,17 @@ bun run src/cli.ts drift [--json]
   → command drift
     → runDrift
       → readRepo
-        → RepoFs.layer(cwd)
+        → RepoFs.layer(cwd)                    // node:fs
+        → parseUpstream (per fork)
       → driftOf (per fork, sequential)
-        → upstreamOf
+        → fork.upstream
+          → InvalidUpstream → Stdio.err warning, fork skipped
         → outcomeOf
-          → UpstreamApi.layerGithub
-      → encodeReport
-      → Stdio.layer
+          → UpstreamApi.layerGithub            // Config GITHUB_TOKEN (optional), fetch api.github.com
+            → UpstreamUnreachable → Unreachable outcome
+      → encodeReport (DriftReport schema) | describe
+      → reportFsError (RepoFsError → stderr, exit 1)
+      → Stdio.layer                            // console
 ```
 
 Tests:
@@ -105,11 +116,13 @@ Tests:
 runDrift({ json })
   → readRepo
     → RepoFs.layer(throwaway tree)
+    → parseUpstream (per fork)
   → driftOf (per fork, sequential)
-    → upstreamOf
+    → fork.upstream
+      → InvalidUpstream → captured stderr warning, fork skipped
     → outcomeOf
       → fake UpstreamApi layer
-  → encodeReport
+  → encodeReport (DriftReport schema) | describe
   → captureStdio
 ```
 
@@ -120,15 +133,15 @@ Production:
 ```ts
 bun run scripts/drift-issues.ts <drift.json>
   → syncDriftIssuesFromFile
-    → RepoFs.layer(cwd)
-    → decodeReport
+    → RepoFs.layer(cwd)                        // node:fs: read drift.json
+    → decodeReport (DriftReport schema)
     → syncDriftIssues
-      → IssueClient.layerGh
+      → IssueClient.layerGh                    // Bun.spawn gh: issue list (once), create, edit
 ```
 
 Tests:
 
 ```ts
 syncDriftIssues(entries)
-  → memoryIssues layer
+  → memoryIssues layer                         // listOpen once, create, update
 ```
