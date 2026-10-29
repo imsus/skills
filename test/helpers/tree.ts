@@ -55,9 +55,14 @@ export function categoryJson(description = "A category.", version = "1.0.0"): st
   return JSON.stringify({ description, version }, null, 2) + "\n";
 }
 
-/** A category with its metadata file and the given skills (all valid own skills). */
+export const CHANGELOG = "# Changelog\n\n## 1.0.0\n\n- Initial release.\n";
+
+/** A category with its metadata file, changelog and the given skills (all valid own skills). */
 export function category(name: string, skills: string[] = []): Files {
-  const files: Files = { [`skills/${name}/category.json`]: categoryJson() };
+  const files: Files = {
+    [`skills/${name}/category.json`]: categoryJson(),
+    [`skills/${name}/CHANGELOG.md`]: CHANGELOG,
+  };
   for (const skill of skills) files[`skills/${name}/${skill}/SKILL.md`] = skillMd(skill);
   return files;
 }

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { buildTree, category, categoryJson, runCli, skillMd, type Tree } from "./helpers/tree";
+import { buildTree, category, categoryJson, CHANGELOG, runCli, skillMd, type Tree } from "./helpers/tree";
 
 let tree: Tree;
 afterEach(() => tree?.cleanup());
@@ -78,8 +78,18 @@ test("category with invalid semver or missing description fails", async () => {
 });
 
 test("accepts prerelease and build semver", async () => {
-  const r = await check({ "skills/web/category.json": categoryJson("ok", "1.2.3-beta.1+build.5") });
+  const r = await check({
+    "skills/web/category.json": categoryJson("ok", "1.2.3-beta.1+build.5"),
+    "skills/web/CHANGELOG.md": CHANGELOG,
+  });
   expect(r.code).toBe(0);
+});
+
+test("category without CHANGELOG.md fails, naming the category and file", async () => {
+  const r = await check({ "skills/web/category.json": categoryJson() });
+  expect(r.code).not.toBe(0);
+  expect(r.stderr).toContain("skills/web");
+  expect(r.stderr).toContain("CHANGELOG.md");
 });
 
 test("three different violations are all reported in one run", async () => {

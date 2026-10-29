@@ -5,6 +5,8 @@ import { join } from "node:path";
 export const SKILLS_DIR = "skills";
 /** Category metadata file: `skills/<category>/category.json`. */
 export const CATEGORY_META_FILE = "category.json";
+/** Category changelog file: `skills/<category>/CHANGELOG.md`. */
+export const CHANGELOG_FILE = "CHANGELOG.md";
 
 /**
  * Raw result of reading a category's metadata file. The reader does not
@@ -39,6 +41,8 @@ export interface Category {
   path: string;
   dir: string;
   meta: CategoryMeta;
+  /** Names of the entries directly inside the category folder, sorted. */
+  files: string[];
   /** Skill folders, sorted by name. */
   skills: SkillFolder[];
 }
@@ -96,6 +100,7 @@ export function readRepo(root: string): Repo {
       path: `${SKILLS_DIR}/${name}`,
       dir,
       meta: readMeta(dir),
+      files: readdirSync(dir).sort(),
       skills: subdirs(dir).map((skill) => readSkill(root, name, skill)),
     };
   });
