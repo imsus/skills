@@ -7,7 +7,7 @@ fixes:
     route: skill edit
     destination: skills/meta/imsus-ask/SKILL.md
     check: unproven
-    score:
+    score: addressed
   - id: ask-start-checks-existing
     finding: '"Start something" routed a drift check for imsus-retro that already existed (drift covers every UPSTREAM.md, drift.yml runs weekly)'
     route: skill edit
@@ -25,13 +25,13 @@ fixes:
     route: workflow profile
     destination: https://github.com/imsus/skills/issues/18
     check: issue
-    score:
+    score: addressed
   - id: no-timeout-on-macos
     finding: '`timeout` is not installed on macOS; a `timeout … | grep` run printed nothing and read as success'
     route: CLAUDE.md pointer (user-global)
     destination: ~/.claude/CLAUDE.md
     check: unproven
-    score:
+    score: addressed
 ---
 
 ## Coverage

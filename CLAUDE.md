@@ -20,7 +20,7 @@ Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents
 
 How work is done here, set up by `/imsus-setup`. Ask `/imsus-ask` what to do next.
 
-- **Workflows**: feature, bug, explore. See `docs/agents/workflow.md`.
+- **Workflows**: feature, small change, bug, explore. See `docs/agents/workflow.md`.
 - **Git flow**: branch + PR on `main`. See `docs/agents/git.md`.
 - **Harness**: Claude Code, also none. See `docs/agents/harness.md`.
 - **Stack**: skills collection with a private Bun CLI, TypeScript on Bun with Effect, bun; verify with `bun run verify`. See `docs/agents/stack.md`.
