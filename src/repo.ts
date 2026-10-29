@@ -2,6 +2,7 @@ import { Effect, Option, Schema } from "effect";
 import { CategoryJsonUnreadable, InvalidUpstream, type RepoFsError } from "./errors";
 import { CategoryName, SkillName } from "./ids";
 import { RepoFs } from "./repo-fs";
+import { parseSkillMd, SKILL_FILE, SkillMd } from "./skill-md";
 import { parseUpstream, Upstream, UPSTREAM_FILE } from "./upstream";
 
 /** Directory under the repo root that holds the categories. */
@@ -40,8 +41,8 @@ const SkillFields = {
   category: CategoryName,
   /** Names of the entries directly inside the folder, sorted. */
   files: Schema.Array(Schema.String),
-  /** Contents of `SKILL.md`, if present. */
-  skillMd: Schema.Option(Schema.String),
+  /** `SKILL.md`, decoded, if present. */
+  skillMd: Schema.Option(SkillMd),
 };
 
 /** A skill the curator wrote from scratch. */
@@ -83,6 +84,20 @@ export const Repo = Schema.Struct({
 export type Repo = typeof Repo.Type;
 
 export const isFork = (skill: Skill): skill is ForkSkill => skill._tag === "Fork";
+
+/** A category whose `category.json` loaded. */
+export type LoadedCategory = Category & { meta: Extract<CategoryMeta, { _tag: "Loaded" }> };
+
+/**
+ * The categories whose metadata loaded, each with its skills sorted by name.
+ * The generated files cover only these; the category rules report the rest.
+ */
+export const loadedCategories = (repo: Repo): LoadedCategory[] =>
+  repo.categories.flatMap((cat) =>
+    cat.meta._tag === "Loaded" ? [{ ...cat, meta: cat.meta, skills: [...cat.skills].sort(byName) }] : [],
+  );
+
+const byName = (a: Skill, b: Skill) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 
 /** Every skill folder in the repo, category by category. */
 export const allSkills = (repo: Repo): Skill[] => repo.categories.flatMap((c) => c.skills);
@@ -134,7 +149,7 @@ const readSkill = Effect.fnUntraced(function* (category: CategoryName, name: Ski
   const fs = yield* RepoFs;
   const path = `${SKILLS_DIR}/${category}/${name}`;
   const files = yield* fs.list(path);
-  const skillMd = yield* fs.readText(`${path}/SKILL.md`);
+  const skillMd = Option.map(yield* fs.readText(`${path}/${SKILL_FILE}`), parseSkillMd);
   const base = { name, path, category, files, skillMd };
   if (!files.includes(UPSTREAM_FILE)) return { _tag: "Own", ...base } satisfies OwnSkill;
   // Divergent strategy: this fork's invalid UPSTREAM.md is data on the fork, while the reads above stay fatal.

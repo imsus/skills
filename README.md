@@ -40,7 +40,7 @@ bun run src/cli.ts check   # validate the repo only (also: bun run check)
 bun test
 ```
 
-`bun run verify` is the one local command that matches CI. CI runs it (typecheck, `bun test`, `check` and `manifest --check`) on every push and pull request.
+`bun run verify` is the one local command that matches CI. CI runs it (typecheck, `bun test`, `check`, `manifest --check` and `lint:workflows`) on every push and pull request. `lint:workflows` runs actionlint when it is on your PATH and skips with a notice otherwise; CI installs it and also runs it as its own step.
 
 ### Extending the CLI
 
@@ -104,16 +104,40 @@ npx skills add imsus/skills
 
 Each category is one plugin, listed in `.claude-plugin/marketplace.json`.
 
+### Local link (testing a skill before publishing)
+
+Claude Code only loads skills from `.claude/skills`, `~/.claude/skills` and installed plugins, so a skill in `skills/<category>/` is invisible until it is linked:
+
+```
+bun run link                     # link every skill into this repo's .claude/skills (relative links)
+bun run link --user              # link into ~/.claude/skills instead (absolute links), to try skills in other projects
+bun run link --remove [--user]   # delete only the links that point into this repo's skills/
+```
+
+Edits take effect without re-running; start a new session to pick up a newly linked skill. Re-running is safe: it links new skills, relinks moved ones and prunes links to deleted ones. An entry it did not create (an installed copy, a link elsewhere) is reported as a conflict, left alone, and makes the command exit 1. `.claude/skills/` is gitignored.
+
+A linked skill is invoked as `/<skill>` (e.g. `/imsus-ask`); the same skill installed as a plugin is `/<category>:<skill>` (e.g. `/meta:imsus-ask`). Before publishing, also try the plugin route from a local marketplace: `/plugin marketplace add <path-to-this-repo>`, then `/plugin install <category>@imsus`.
+
 ### The marketplace manifest
 
 `.claude-plugin/marketplace.json` is generated from the folder tree. Do not edit it by hand.
 
 ```
-bun run manifest                        # regenerate
-bun run src/cli.ts manifest --check     # exit non-zero if stale (CI runs this)
+bun run manifest                        # regenerate the manifest, skill catalogs and shared reference copies
+bun run src/cli.ts manifest --check     # exit non-zero if any is stale (CI runs this)
 ```
 
 A category whose `category.json` is missing or unreadable gets no plugin until `check` is clean.
+
+### The skill catalog
+
+`manifest` also writes the skill catalog, `references/catalog.md`, into `imsus-ask` and `imsus-setup` (when those skills exist). It lists, per category, the plugin and `npx skills` install lines, and per skill its name, category, description, and whether it is an own skill or a fork (with the upstream `repo`). Do not edit it by hand. `manifest --check` fails when either copy is stale, which includes the two copies differing.
+
+### Shared references
+
+`imsus-setup` and `imsus-ask` share three hand-written references: `workflows.md`, `harness.md` and `curated-skills.md`. Edit them only in `skills/meta/imsus-setup/references/`; `manifest` copies each into `skills/meta/imsus-ask/references/`, and `manifest --check` fails when a copy differs from its source or is missing.
+
+Every file `manifest` owns is one entry of `generatedFiles` in `src/commands/manifest.ts` (a path and its exact text, which may be read from another file, as the shared references are); `manifest` writes them all and `--check` compares them all. To generate another file, add an entry there.
 
 ## Versioning
 

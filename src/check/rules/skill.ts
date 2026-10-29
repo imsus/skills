@@ -1,5 +1,4 @@
 import { Option } from "effect";
-import { parseFrontmatter } from "../../frontmatter";
 import { allSkills } from "../../repo";
 import type { Rule, Violation } from "../rule";
 
@@ -18,11 +17,11 @@ export const rule: Rule = (repo) => {
       report("skill-md-missing", "folder has no SKILL.md");
       continue;
     }
-    const fm = parseFrontmatter(skill.skillMd.value) ?? {};
-    if (fm.name !== skill.name) {
-      report("skill-name", `folder name "${skill.name}" must equal frontmatter name "${fm.name ?? ""}"`);
+    const md = skill.skillMd.value;
+    if (md.name !== skill.name) {
+      report("skill-name", `folder name "${skill.name}" must equal frontmatter name "${md.name ?? ""}"`);
     }
-    if (!fm.description?.trim()) {
+    if (!md.description?.trim()) {
       report("skill-description", "frontmatter description is missing or empty");
     }
   }

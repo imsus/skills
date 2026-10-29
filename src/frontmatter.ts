@@ -1,4 +1,14 @@
 const BLOCK = /^[>|][+-]?$/;
+const FRONTMATTER = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/;
+
+const withoutBom = (text: string) => text.replace(/^﻿/, "");
+
+/** The Markdown after the leading `---` frontmatter block, or the whole text when there is none. */
+export function markdownBody(text: string): string {
+  const unmarked = withoutBom(text);
+  const match = FRONTMATTER.exec(unmarked);
+  return match ? unmarked.slice(match[0].length) : unmarked;
+}
 
 function unquote(value: string): string {
   return /^"[^"]*"$|^'[^']*'$/.test(value) ? value.slice(1, -1) : value;
@@ -12,7 +22,7 @@ function unquote(value: string): string {
  * indented continuation lines.
  */
 export function parseFrontmatter(text: string): Record<string, string> | null {
-  const match = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/.exec(text.replace(/^﻿/, ""));
+  const match = FRONTMATTER.exec(withoutBom(text));
   if (!match) return null;
   const out: Record<string, string> = {};
   const lines = (match[1] ?? "").split(/\r?\n/);

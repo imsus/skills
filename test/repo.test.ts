@@ -30,7 +30,25 @@ test("finds categories, their metadata and skill folders, sorted", async () => {
   expect(web.skills[0]!.files).toContain("UPSTREAM.md");
   expect(web.skills[0]!._tag).toBe("Fork");
   expect(web.skills[1]!._tag).toBe("Own");
-  expect(Option.getOrThrow(web.skills[1]!.skillMd)).toContain("name: imsus-b");
+  expect(Option.getOrThrow(web.skills[1]!.skillMd)).toEqual({
+    name: "imsus-b",
+    description: "Does a thing.",
+    disableModelInvocation: false,
+    body: "\n# imsus-b\n",
+  });
+});
+
+test("decodes SKILL.md frontmatter once: missing fields stay absent, the user-only flag is a boolean", async () => {
+  tree = buildTree({
+    ...category("web"),
+    "skills/web/imsus-a/SKILL.md": "---\nname: imsus-a\ndisable-model-invocation: true\n---\nRoutes.\n",
+    "skills/web/imsus-b/SKILL.md": "# No frontmatter\n",
+    "skills/web/imsus-c/notes.md": "x",
+  });
+  const [a, b, c] = (await read()).categories[0]!.skills.map((s) => s.skillMd);
+  expect(Option.getOrThrow(a!)).toEqual({ name: "imsus-a", disableModelInvocation: true, body: "Routes.\n" });
+  expect(Option.getOrThrow(b!)).toEqual({ disableModelInvocation: false, body: "# No frontmatter\n" });
+  expect(Option.isNone(c!)).toBe(true);
 });
 
 test("reports missing and unreadable category metadata", async () => {
