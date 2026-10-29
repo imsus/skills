@@ -11,6 +11,7 @@
       "name": "meta",
       "skills": [
         "./skills/meta/imsus-ask",
+        "./skills/meta/imsus-retro",
         "./skills/meta/imsus-setup"
       ],
       "source": "./",

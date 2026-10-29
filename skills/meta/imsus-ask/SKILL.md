@@ -19,7 +19,7 @@ Shared reference, read when a step points at it:
 
 Only these, and nothing else:
 
-- **imsus skills.** `/imsus-setup` writes or audits the project's workflow profile, tooling and installed imsus skills; recommend it when the profile is missing, stale, or lacks the workflow the user needs. A skill listed in catalog.md but absent from this list: route by its catalog description.
+- **imsus skills.** `/imsus-setup` writes or audits the project's workflow profile, tooling and installed imsus skills; recommend it when the profile is missing, stale, or lacks the workflow the user needs. `/imsus-retro` reviews a finished session and turns what went wrong into proven fixes (see Close calls). A skill listed in catalog.md but absent from this list: route by its catalog description.
 - **The current harness's built-ins**, from harness.md for the detected harness.
 - **Outside skills the workflow profile records** (`docs/agents/workflow.md`, or, before imsus-setup has run, Matt's skills when `/setup-matt-pocock-skills` has written the `## Agent skills` block). A curated skill the profile does not record is a reason to recommend `/imsus-setup`, not the skill.
 
@@ -96,4 +96,4 @@ If you'd rather build the whole spec in one run:
 - **Triage or not**: only issues the user didn't write. Tickets from the tickets step are already agent-ready.
 - **Per-ticket vs whole-graph implementation**: the user wants to drive each ticket → per ticket, clearing between them; they'd rather orchestrate → the whole graph in one run.
 - **Grill vs map**: an idea one session can hold gets grilled; one it can't gets a wayfinding map, which hands over to the spec step when it clears.
-- **Retro**: the last step of every workflow (workflows.md), run in the session it reviews before clearing. Recommend it only once catalog.md lists it; when the user says they finished and this session did the work, offer it as a branch.
+- **Retro**: `/imsus-retro` is the last step of every workflow (workflows.md), run in the session it reviews before clearing; after a `/clear`, point it at that session's id. When the user says they finished and this session did the work, offer it as a branch.
