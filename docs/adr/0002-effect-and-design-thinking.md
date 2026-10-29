@@ -42,7 +42,7 @@ bun run src/cli.ts check
         → RepoFs.layer(cwd)                    // node:fs: readdir, stat, readFile
         → parseUpstream (per fork; InvalidUpstream kept on the Fork as data)
       → loadRules                              // readdirSync + import of check/rules, found from the module's own path
-      → rules (category, fork, layout, skill)
+      → rules (category, fork, layout, router, skill, user-only)
     → reportFsError (RepoFsError → stderr, exit 1)
     → Stdio.layer                              // console
 ```
@@ -57,7 +57,7 @@ runCli(["check"])
         → RepoFs.layer(throwaway tree)
         → parseUpstream (per fork)
       → loadRules
-      → rules (category, fork, layout, skill)
+      → rules (category, fork, layout, router, skill, user-only)
     → Stdio.layer
 ```
 

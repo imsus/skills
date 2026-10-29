@@ -6,4 +6,4 @@ disable-model-invocation: true
 
 # imsus-ask
 
-Placeholder. The skill catalog is in [references/catalog.md](references/catalog.md).
+Placeholder. Routes to /imsus-setup until the router is written. The skill catalog is in [references/catalog.md](references/catalog.md).
