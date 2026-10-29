@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
     "check": "bun run src/cli.ts check",
     "manifest": "bun run src/cli.ts manifest",
     "test": "bun test",

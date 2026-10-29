@@ -1,0 +1,3 @@
+#!/bin/sh
+# Enabled by `bun install` (the prepare script sets core.hooksPath).
+exec bun run verify
