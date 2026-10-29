@@ -16,7 +16,7 @@ export interface Upstream {
 export type UpstreamParse = { ok: true; upstream: Upstream } | { ok: false; problems: string[] };
 
 const REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
-const SHA_RE = /^[0-9a-f]{40}$/;
+const SHA_RE = /^[0-9a-fA-F]{40}$/;
 
 /** Parse the frontmatter of an `UPSTREAM.md`. Never throws; returns every problem found. */
 export function parseUpstream(text: string): UpstreamParse {
@@ -28,8 +28,8 @@ export function parseUpstream(text: string): UpstreamParse {
     if (!fm[field]) problems.push(`missing field: ${field}`);
   }
   if (fm.repo && !REPO_RE.test(fm.repo)) problems.push(`repo must be owner/name, got "${fm.repo}"`);
-  if (fm.sha && !SHA_RE.test(fm.sha)) problems.push(`sha must be 40 lowercase hex characters, got "${fm.sha}"`);
+  if (fm.sha && !SHA_RE.test(fm.sha)) problems.push(`sha must be 40 hex characters, got "${fm.sha}"`);
   if (problems.length > 0) return { ok: false, problems };
 
-  return { ok: true, upstream: { repo: fm.repo!, path: fm.path!, sha: fm.sha! } };
+  return { ok: true, upstream: { repo: fm.repo!, path: fm.path!, sha: fm.sha!.toLowerCase() } };
 }

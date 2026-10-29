@@ -22,6 +22,11 @@ test("rejects a short or non-hex sha", () => {
   }
 });
 
+test("accepts an uppercase sha and normalizes it to lowercase", () => {
+  const r = parseUpstream(upstreamMd({ sha: SHA.toUpperCase() }));
+  expect(r.ok && r.upstream.sha).toBe(SHA);
+});
+
 test("rejects a repo that is not owner/name", () => {
   expect(parseUpstream(upstreamMd({ repo: "just-a-name" })).ok).toBe(false);
 });
