@@ -1,5 +1,4 @@
 import { Option } from "effect";
-import { markdownBody } from "../../frontmatter";
 import { allSkills } from "../../repo";
 import type { Rule, Violation } from "../rule";
 
@@ -20,7 +19,7 @@ export const rule: Rule = (repo) => {
   const router = skills.find((s) => s.name === ROUTER);
   if (!router || Option.isNone(router.skillMd)) return [];
 
-  const mentioned = new Set([...markdownBody(router.skillMd.value).matchAll(MENTION)].map((m) => m[1]!));
+  const mentioned = new Set([...router.skillMd.value.body.matchAll(MENTION)].map((m) => m[1]!));
   const names = new Set<string>(skills.map((s) => s.name));
   const out: Violation[] = [];
   const report = (message: string) => out.push({ path: router.path, rule: "router-coverage", message });

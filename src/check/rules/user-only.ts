@@ -1,5 +1,4 @@
 import { Option } from "effect";
-import { parseFrontmatter } from "../../frontmatter";
 import { allSkills } from "../../repo";
 import type { Rule, Violation } from "../rule";
 
@@ -13,9 +12,7 @@ const isUserOnly = (name: string) => name === "imsus-ask" || name === "imsus-ret
 export const rule: Rule = (repo) => {
   const out: Violation[] = [];
   for (const skill of allSkills(repo).filter((s) => isUserOnly(s.name))) {
-    if (Option.isNone(skill.skillMd)) continue;
-    const fm = parseFrontmatter(skill.skillMd.value) ?? {};
-    if (fm["disable-model-invocation"] !== "true") {
+    if (Option.exists(skill.skillMd, (md) => !md.disableModelInvocation)) {
       out.push({
         path: skill.path,
         rule: "user-only",

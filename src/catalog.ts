@@ -1,5 +1,4 @@
 import { Option, Result } from "effect";
-import { parseFrontmatter } from "./frontmatter";
 import type { Category, Repo, Skill } from "./repo";
 
 /** Skills that carry a copy of the catalog, at `<skill>/${CATALOG_FILE}`. */
@@ -15,7 +14,7 @@ const cell = (text: string) => text.replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\
 const description = (skill: Skill) =>
   Option.match(skill.skillMd, {
     onNone: () => "",
-    onSome: (md) => parseFrontmatter(md)?.description ?? "",
+    onSome: (md) => md.description ?? "",
   });
 
 const source = (skill: Skill) => {

@@ -2,6 +2,7 @@ import { Effect, Option, Schema } from "effect";
 import { CategoryJsonUnreadable, InvalidUpstream, type RepoFsError } from "./errors";
 import { CategoryName, SkillName } from "./ids";
 import { RepoFs } from "./repo-fs";
+import { parseSkillMd, SKILL_FILE, SkillMd } from "./skill-md";
 import { parseUpstream, Upstream, UPSTREAM_FILE } from "./upstream";
 
 /** Directory under the repo root that holds the categories. */
@@ -40,8 +41,8 @@ const SkillFields = {
   category: CategoryName,
   /** Names of the entries directly inside the folder, sorted. */
   files: Schema.Array(Schema.String),
-  /** Contents of `SKILL.md`, if present. */
-  skillMd: Schema.Option(Schema.String),
+  /** `SKILL.md`, decoded, if present. */
+  skillMd: Schema.Option(SkillMd),
 };
 
 /** A skill the curator wrote from scratch. */
@@ -134,7 +135,7 @@ const readSkill = Effect.fnUntraced(function* (category: CategoryName, name: Ski
   const fs = yield* RepoFs;
   const path = `${SKILLS_DIR}/${category}/${name}`;
   const files = yield* fs.list(path);
-  const skillMd = yield* fs.readText(`${path}/SKILL.md`);
+  const skillMd = Option.map(yield* fs.readText(`${path}/${SKILL_FILE}`), parseSkillMd);
   const base = { name, path, category, files, skillMd };
   if (!files.includes(UPSTREAM_FILE)) return { _tag: "Own", ...base } satisfies OwnSkill;
   // Divergent strategy: this fork's invalid UPSTREAM.md is data on the fork, while the reads above stay fatal.
