@@ -30,16 +30,17 @@ export function generateManifest(repo: Repo): string {
     plugin.skills = cat.skills.map((s) => `./${s.path}`).sort();
     plugins.push(plugin);
   }
+  // Keys are written in alphabetical order; JSON.stringify keeps insertion order.
   const manifest = {
+    description: "Imam Susanto's curated agent skills, one plugin per category.",
     name: "imsus",
     owner: { name: "Imam Susanto", url: "https://github.com/imsus" },
-    description: "Imam Susanto's curated agent skills, one plugin per category.",
     plugins: plugins.map((p) => ({
-      name: p.name,
-      source: p.source,
       description: p.description,
-      version: p.version,
+      name: p.name,
       skills: p.skills,
+      source: p.source,
+      version: p.version,
     })),
   };
   return JSON.stringify(manifest, null, 2) + "\n";

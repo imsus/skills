@@ -34,6 +34,15 @@ test("two categories yield two plugins with their own skills and versions", asyn
   ]);
 });
 
+test("object keys are sorted alphabetically at every level", async () => {
+  tree = buildTree(categoryWith("web", ["imsus-a"], "Web stuff.", "2.1.0"));
+  await runCli(["manifest"], tree.root);
+  const m = JSON.parse(read());
+  expect(Object.keys(m)).toEqual(["description", "name", "owner", "plugins"]);
+  expect(Object.keys(m.owner)).toEqual(["name", "url"]);
+  expect(Object.keys(m.plugins[0])).toEqual(["description", "name", "skills", "source", "version"]);
+});
+
 test("running manifest twice is byte-identical", async () => {
   tree = buildTree({ ...category("web", ["imsus-a"]), ...category("laravel", ["imsus-b"]) });
   await runCli(["manifest"], tree.root);
