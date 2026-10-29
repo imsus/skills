@@ -1,0 +1,24 @@
+name: Drift
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run src/cli.ts drift --json > "$RUNNER_TEMP/drift.json"
+      - run: gh label create drift --description "Upstream drift" --force
+      - run: bun run src/cli.ts drift-issues "$RUNNER_TEMP/drift.json"

@@ -77,6 +77,10 @@ Own skills are covered by the root MIT [LICENSE](LICENSE) and carry no license f
 
 `bun run src/cli.ts drift` reports, for each fork, whether its upstream has new commits touching the forked path since the recorded SHA: `up to date`, `drifted` (with a GitHub compare URL), or `unreachable`. It exits 0 whenever the report completes. Set `GITHUB_TOKEN` to avoid API rate limits. `drift --json` prints an array with `skill`, `category`, `path`, `upstreamRepo`, `upstreamPath`, `outcome` (`up-to-date` | `drifted` | `unreachable`), `recordedSha`, `latestSha`, `compareUrl` and `error` per fork.
 
+### Drift workflow
+
+`.github/workflows/drift.yml` runs weekly and on manual dispatch (`workflow_dispatch`). It runs `drift --json`, then `drift-issues` opens one issue per drifted or unreachable fork, titled `Drift: <category>/<skill>` and labelled `drift`. If an open issue with that title exists, it updates the body (latest compare URL) instead of opening a duplicate. It never changes files, merges, or closes issues, and has only `contents: read` and `issues: write`.
+
 ## License
 
 MIT for my own skills (see [LICENSE](LICENSE)). Forks keep their upstream's license.
