@@ -3,7 +3,9 @@ import type { Command } from "../command";
 import { reportFsError } from "../report";
 import { CATALOG_DESTINATIONS, CATALOG_FILE, generateCatalog } from "../catalog";
 import { allSkills, readRepo, type Repo } from "../repo";
+import type { RepoFsError } from "../errors";
 import { RepoFs } from "../repo-fs";
+import { sharedReferenceCopies } from "../shared-references";
 import { Stdio } from "../stdio";
 
 export const MANIFEST_PATH = ".claude-plugin/marketplace.json";
@@ -56,26 +58,29 @@ export interface GeneratedFile {
 }
 
 /**
- * Every file generated from the folder tree: the marketplace manifest, and
- * one catalog copy in each catalog destination skill present in the repo.
+ * Every file generated from the folder tree: the marketplace manifest, one
+ * catalog copy in each catalog destination skill present in the repo, and
+ * imsus-ask's copies of imsus-setup's shared references.
  * `manifest` writes them all; `--check` fails on any that differs.
  */
-export function generatedFiles(repo: Repo): GeneratedFile[] {
-  const catalog = generateCatalog(repo);
-  const copies = allSkills(repo)
-    .filter((s) => CATALOG_DESTINATIONS.includes(s.name))
-    .map((s) => ({ path: `${s.path}/${CATALOG_FILE}`, text: catalog }));
-  return [{ path: MANIFEST_PATH, text: generateManifest(repo) }, ...copies];
-}
+export const generatedFiles = (repo: Repo): Effect.Effect<GeneratedFile[], RepoFsError, RepoFs> =>
+  Effect.gen(function* () {
+    const catalog = generateCatalog(repo);
+    const catalogs = allSkills(repo)
+      .filter((s) => CATALOG_DESTINATIONS.includes(s.name))
+      .map((s) => ({ path: `${s.path}/${CATALOG_FILE}`, text: catalog }));
+    const references = yield* sharedReferenceCopies(repo);
+    return [{ path: MANIFEST_PATH, text: generateManifest(repo) }, ...catalogs, ...references];
+  });
 
 export const command: Command = {
   name: "manifest",
-  summary: "Generate .claude-plugin/marketplace.json and the skill catalogs (--check: fail if stale)",
+  summary: "Generate .claude-plugin/marketplace.json, the skill catalogs and the shared reference copies (--check: fail if stale)",
   run: (args) =>
     Effect.gen(function* () {
       const fs = yield* RepoFs;
       const io = yield* Stdio;
-      const files = generatedFiles(yield* readRepo);
+      const files = yield* generatedFiles(yield* readRepo);
       if (!args.includes("--check")) {
         yield* Effect.forEach(files, (f) => Effect.andThen(fs.writeText(f.path, f.text), io.out(`Wrote ${f.path}`)));
         return 0;

@@ -109,7 +109,7 @@ Each category is one plugin, listed in `.claude-plugin/marketplace.json`.
 `.claude-plugin/marketplace.json` is generated from the folder tree. Do not edit it by hand.
 
 ```
-bun run manifest                        # regenerate the manifest and the skill catalogs
+bun run manifest                        # regenerate the manifest, skill catalogs and shared reference copies
 bun run src/cli.ts manifest --check     # exit non-zero if any is stale (CI runs this)
 ```
 
@@ -119,7 +119,11 @@ A category whose `category.json` is missing or unreadable gets no plugin until `
 
 `manifest` also writes the skill catalog, `references/catalog.md`, into `imsus-ask` and `imsus-setup` (when those skills exist). It lists, per category, the plugin and `npx skills` install lines, and per skill its name, category, description, and whether it is an own skill or a fork (with the upstream `repo`). Do not edit it by hand. `manifest --check` fails when either copy is stale, which includes the two copies differing.
 
-Every file `manifest` owns is one entry of `generatedFiles` in `src/commands/manifest.ts` (a path and its exact text); `manifest` writes them all and `--check` compares them all. To generate another file, add an entry there.
+### Shared references
+
+`imsus-setup` and `imsus-ask` share three hand-written references: `workflows.md`, `harness.md` and `curated-skills.md`. Edit them only in `skills/meta/imsus-setup/references/`; `manifest` copies each into `skills/meta/imsus-ask/references/`, and `manifest --check` fails when a copy differs from its source or is missing.
+
+Every file `manifest` owns is one entry of `generatedFiles` in `src/commands/manifest.ts` (a path and its exact text, which may be read from another file, as the shared references are); `manifest` writes them all and `--check` compares them all. To generate another file, add an entry there.
 
 ## Versioning
 
