@@ -8,6 +8,7 @@ Workflows this project uses, from imsus-setup's workflows reference. Working sty
 | Workflow | Starts with | Use for |
 | --- | --- | --- |
 | feature | `/grill-with-docs` | A new skill, category or tooling change that needs decisions or spans sessions |
+| small change | `/implement` | A ticket clear enough to do in one session, such as a retro fix or a profile edit |
 | bug | `/diagnosing-bugs` | A broken `check`, `manifest`, `drift` or `link` command, a red CI run, or a skill that misbehaves |
 | explore | `/triage` or `/wayfinder` | `drift` issues the weekly job opens (`/triage`); a foggy effort before it becomes a spec (`/wayfinder`) |
 
@@ -17,7 +18,7 @@ Only steps that differ from the default, or that a harness built-in fills. Every
 
 | Workflow step | Skill | Source |
 | --- | --- | --- |
-| feature 6: review | `/code-review` | mattpocock/skills, installed under the Claude Code built-in's name; adds the Standards (`CODING_STANDARDS.md`) and Spec axes |
+| feature 6, small change 2: review | `/code-review` | mattpocock/skills, installed under the Claude Code built-in's name; adds the Standards (`CODING_STANDARDS.md`) and Spec axes |
 | bug 3: fix | no skill: done by hand in the same session | - |
 | phase boundary | `/compact`, `/clear` | harness built-in |
 | phase boundary: new harness, repo or side task | `/handoff` | mattpocock/skills |
