@@ -73,6 +73,10 @@ What I changed and why.
 
 Own skills are covered by the root MIT [LICENSE](LICENSE) and carry no license file of their own. A fork must carry its upstream's `LICENSE` in its own folder, and that license governs it.
 
+## Drift
+
+`bun run src/cli.ts drift` reports, for each fork, whether its upstream has new commits touching the forked path since the recorded SHA: `up to date`, `drifted` (with a GitHub compare URL), or `unreachable`. It exits 0 whenever the report completes. Set `GITHUB_TOKEN` to avoid API rate limits. `drift --json` prints an array with `skill`, `category`, `path`, `upstreamRepo`, `upstreamPath`, `outcome` (`up-to-date` | `drifted` | `unreachable`), `recordedSha`, `latestSha`, `compareUrl` and `error` per fork.
+
 ## License
 
 MIT for my own skills (see [LICENSE](LICENSE)). Forks keep their upstream's license.
