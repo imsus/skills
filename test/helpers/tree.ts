@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
@@ -20,6 +20,9 @@ export function buildTree(files: Files = {}): Tree {
   }
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
+
+/** The text of the file at repo-relative `rel` in `tree`. */
+export const read = (tree: Tree, rel: string) => readFileSync(join(tree.root, rel), "utf8");
 
 export interface CliResult {
   code: number;

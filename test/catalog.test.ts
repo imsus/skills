@@ -1,15 +1,14 @@
 import { afterEach, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CATALOG_COPIES, metaCategory } from "./helpers/catalog";
 import { fork, upstreamMd } from "./helpers/fork";
 import { categoryWith } from "./helpers/manifest";
-import { buildTree, category, runCli, skillMd, type Tree } from "./helpers/tree";
+import { buildTree, category, read, runCli, skillMd, type Tree } from "./helpers/tree";
 
 let tree: Tree;
 afterEach(() => tree?.cleanup());
 
-const read = (rel: string) => readFileSync(join(tree.root, rel), "utf8");
 
 test("manifest writes the same catalog into imsus-ask and imsus-setup", async () => {
   tree = buildTree({
@@ -19,7 +18,7 @@ test("manifest writes the same catalog into imsus-ask and imsus-setup", async ()
     ...fork("web", "imsus-forked", { upstream: upstreamMd({ repo: "someone/their-skills" }) }),
   });
   expect((await runCli(["manifest"], tree.root)).code).toBe(0);
-  const [ask, setup] = CATALOG_COPIES.map(read);
+  const [ask, setup] = CATALOG_COPIES.map((copy) => read(tree, copy));
   expect(ask).toBe(setup!);
   expect(ask).toBe(
     [
@@ -86,7 +85,7 @@ test("check fails when one catalog copy differs from the other", async () => {
   tree = buildTree(metaCategory());
   await runCli(["manifest"], tree.root);
   const [ask, setup] = CATALOG_COPIES;
-  writeFileSync(join(tree.root, ask!), read(ask!) + "Hand edit.\n");
+  writeFileSync(join(tree.root, ask!), read(tree, ask!) + "Hand edit.\n");
   const r = await runCli(["manifest", "--check"], tree.root);
   expect(r.code).toBe(1);
   expect(r.stderr).toContain(`${ask} is stale`);

@@ -1,13 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
-import { buildTree, category, runCli, skillMd, type Files, type Tree } from "./helpers/tree";
-
-let tree: Tree;
-afterEach(() => tree?.cleanup());
-
-async function check(files: Files) {
-  tree = buildTree(files);
-  return runCli(["check"], tree.root);
-}
+import { expect, test } from "bun:test";
+import { check } from "./helpers/check";
+import { category, skillMd } from "./helpers/tree";
 
 function userOnlyMd(name: string, flag = "true"): string {
   return `---\nname: ${name}\ndescription: Does a thing.\ndisable-model-invocation: ${flag}\n---\n\n# ${name}\n`;

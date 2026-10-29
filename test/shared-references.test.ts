@@ -1,13 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { metaCategory } from "./helpers/catalog";
-import { buildTree, runCli, type Files, type Tree } from "./helpers/tree";
+import { buildTree, read, runCli, type Files, type Tree } from "./helpers/tree";
 
 let tree: Tree;
 afterEach(() => tree?.cleanup());
 
-const read = (rel: string) => readFileSync(join(tree.root, rel), "utf8");
 const SOURCE = "skills/meta/imsus-setup/references";
 const COPY = "skills/meta/imsus-ask/references";
 
@@ -22,9 +21,9 @@ const withReferences = (): Files => ({
 test("manifest copies imsus-setup's shared references into imsus-ask", async () => {
   tree = buildTree(withReferences());
   expect((await runCli(["manifest"], tree.root)).code).toBe(0);
-  expect(read(`${COPY}/workflows.md`)).toBe("# Workflows\n\nfeature, small change, bug, explore\n");
-  expect(read(`${COPY}/harness.md`)).toBe("# Harness\n");
-  expect(read(`${COPY}/curated-skills.md`)).toBe("# Curated skills\n");
+  expect(read(tree, `${COPY}/workflows.md`)).toBe("# Workflows\n\nfeature, small change, bug, explore\n");
+  expect(read(tree, `${COPY}/harness.md`)).toBe("# Harness\n");
+  expect(read(tree, `${COPY}/curated-skills.md`)).toBe("# Curated skills\n");
 });
 
 test("check passes right after manifest", async () => {
@@ -64,6 +63,6 @@ test("check fails when imsus-ask's copy is missing", async () => {
 test("a reference imsus-setup lacks is not copied", async () => {
   tree = buildTree({ ...metaCategory(), [`${SOURCE}/workflows.md`]: "# Workflows\n" });
   expect((await runCli(["manifest"], tree.root)).code).toBe(0);
-  expect(read(`${COPY}/workflows.md`)).toBe("# Workflows\n");
+  expect(read(tree, `${COPY}/workflows.md`)).toBe("# Workflows\n");
   expect(existsSync(join(tree.root, `${COPY}/harness.md`))).toBe(false);
 });

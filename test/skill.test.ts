@@ -1,13 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
-import { buildTree, category, categoryJson, CHANGELOG, runCli, skillMd, type Tree } from "./helpers/tree";
-
-let tree: Tree;
-afterEach(() => tree?.cleanup());
-
-async function check(files: Record<string, string>) {
-  tree = buildTree(files);
-  return runCli(["check"], tree.root);
-}
+import { expect, test } from "bun:test";
+import { check } from "./helpers/check";
+import { category, categoryJson, CHANGELOG, skillMd } from "./helpers/tree";
 
 test("folder without imsus- prefix fails, naming folder and rule", async () => {
   const r = await check({

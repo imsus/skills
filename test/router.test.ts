@@ -1,13 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
-import { buildTree, category, runCli, type Files, type Tree } from "./helpers/tree";
-
-let tree: Tree;
-afterEach(() => tree?.cleanup());
-
-async function check(files: Files) {
-  tree = buildTree(files);
-  return runCli(["check"], tree.root);
-}
+import { expect, test } from "bun:test";
+import { check } from "./helpers/check";
+import { category } from "./helpers/tree";
 
 function askMd(body: string, description = "Routes to the next skill."): string {
   return `---\nname: imsus-ask\ndescription: ${description}\ndisable-model-invocation: true\n---\n\n${body}\n`;
