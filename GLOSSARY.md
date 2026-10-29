@@ -28,6 +28,10 @@ _Avoid_: Divergence, lag
 A named group of related skills that installs as one unit.
 _Avoid_: Pack, bundle, plugin (when meaning the group itself)
 
+**Local link**:
+A skill exposed to a harness straight from this collection's working tree, so edits take effect without reinstalling.
+_Avoid_: Build, dev install
+
 **Harness**:
 The agent program a skill runs inside, such as Claude Code, Codex or Cursor, with its own built-in commands and tools.
 _Avoid_: Agent, client, IDE

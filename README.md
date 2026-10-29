@@ -104,6 +104,20 @@ npx skills add imsus/skills
 
 Each category is one plugin, listed in `.claude-plugin/marketplace.json`.
 
+### Local link (testing a skill before publishing)
+
+Claude Code only loads skills from `.claude/skills`, `~/.claude/skills` and installed plugins, so a skill in `skills/<category>/` is invisible until it is linked:
+
+```
+bun run link                     # link every skill into this repo's .claude/skills (relative links)
+bun run link --user              # link into ~/.claude/skills instead (absolute links), to try skills in other projects
+bun run link --remove [--user]   # delete only the links that point into this repo's skills/
+```
+
+Edits take effect without re-running; start a new session to pick up a newly linked skill. Re-running is safe: it links new skills, relinks moved ones and prunes links to deleted ones. An entry it did not create (an installed copy, a link elsewhere) is reported as a conflict, left alone, and makes the command exit 1. `.claude/skills/` is gitignored.
+
+A linked skill is invoked as `/<skill>` (e.g. `/imsus-ask`); the same skill installed as a plugin is `/<category>:<skill>` (e.g. `/meta:imsus-ask`). Before publishing, also try the plugin route from a local marketplace: `/plugin marketplace add <path-to-this-repo>`, then `/plugin install <category>@imsus`.
+
 ### The marketplace manifest
 
 `.claude-plugin/marketplace.json` is generated from the folder tree. Do not edit it by hand.

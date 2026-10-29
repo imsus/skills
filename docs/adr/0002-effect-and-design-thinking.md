@@ -1,6 +1,6 @@
 # Build the tooling on Effect, following the design-thinking method
 
-The Bun/TypeScript tooling (`check`, `manifest`, `drift` and the `drift-issues` script) is written on `effect` 4.1.0, and all new code follows the method in [Design Thinking](https://gist.github.com/r17x/90eb2f7be93932b5693753aedb09c01a) (copied to `docs/design-thinking.md`): name the shapes, draw the happy path as a call graph, then add E, R and the Schema boundaries, so the code is the graph. Each command is an `Effect.gen` whose body is the happy path and whose `.pipe()` is the complete list of errors it handles. The things the tooling depends on are services (`RepoFs`, `Stdio`, `UpstreamApi`, `IssueClient`), so tests swap layers instead of passing fakes. Untrusted data is decoded with `Schema` where it enters: `category.json`, the `SKILL.md` and `UPSTREAM.md` frontmatter fields, GitHub API JSON, `gh` CLI JSON and the `drift.json` input of `scripts/drift-issues.ts`. Only the core `effect` package is used (it carries `Schema`, `Context.Service` and `Layer` in v4), so there is no `@effect/cli` or `@effect/platform`, and the auto-discovered `src/commands/` dispatch is unchanged.
+The Bun/TypeScript tooling (`check`, `manifest`, `drift`, `link` and the `drift-issues` script) is written on `effect` 4.1.0, and all new code follows the method in [Design Thinking](https://gist.github.com/r17x/90eb2f7be93932b5693753aedb09c01a) (copied to `docs/design-thinking.md`): name the shapes, draw the happy path as a call graph, then add E, R and the Schema boundaries, so the code is the graph. Each command is an `Effect.gen` whose body is the happy path and whose `.pipe()` is the complete list of errors it handles. The things the tooling depends on are services (`RepoFs`, `Stdio`, `UpstreamApi`, `IssueClient`), so tests swap layers instead of passing fakes. Untrusted data is decoded with `Schema` where it enters: `category.json`, the `SKILL.md` and `UPSTREAM.md` frontmatter fields, GitHub API JSON, `gh` CLI JSON and the `drift.json` input of `scripts/drift-issues.ts`. Only the core `effect` package is used (it carries `Schema`, `Context.Service` and `Layer` in v4), so there is no `@effect/cli` or `@effect/platform`, and the auto-discovered `src/commands/` dispatch is unchanged.
 
 ## Shapes
 
@@ -10,6 +10,7 @@ The Bun/TypeScript tooling (`check`, `manifest`, `drift` and the `drift-issues` 
 - **SkillMd** is `{ name?, description?, disableModelInvocation, body }`, decoded from `SKILL.md` once when the repo is read and carried on every skill as an `Option`. A missing name or description is data the `skill` rule reports.
 - **Upstream** is `{ repo, path, sha }`, decoded from the `UPSTREAM.md` frontmatter with `sha` lowercased.
 - **Violation** is `{ path, rule, message }`.
+- **Entry** is what `RepoFs.entry` finds at a path without following it: `Absent`, `Link` (with its raw target) or `Other`. `link` judges each entry by its real path (`RepoFs.realPath`) into a **Slot**: `Free`, `Same` (already leads to the skill), `Ours` (a Local link elsewhere in `skills/`) or `Foreign`. Only `Ours` and `Same` entries are ever rewritten or removed.
 - **DriftOutcome** is `UpToDate`, `Drifted` or `Unreachable`. `drift --json` keeps its flat wire shape (`outcome` as `up-to-date`, `drifted` or `unreachable`, plus nullable fields), and a Schema transformation maps it to and from the tagged union. A wire entry that contradicts its outcome, such as `drifted` without a compare URL, fails to decode.
 - **Errors** are tagged: `RepoFsError`, `CategoryJsonUnreadable`, `InvalidUpstream`, `UpstreamUnreachable`, `IssueClientError` and `DriftReportError`.
 
@@ -18,6 +19,7 @@ The Bun/TypeScript tooling (`check`, `manifest`, `drift` and the `drift-issues` 
 - `UpstreamUnreachable` is an escape hatch for one fork. `drift` turns it into that fork's `Unreachable` outcome and goes on with the others.
 - `InvalidUpstream` is also per fork: `drift` warns on stderr and skips it, and `check` reports it as violations. The `layout` rule reports a file where a category or skill folder is expected.
 - `RepoFsError` and `IssueClientError` are fatal for the command. Each command catches them in its `.pipe()` and exits 1.
+- `ConfigError` from reading `HOME` for `link --user` is caught in `link`'s `.pipe()`: stderr, exit 1. A `link` conflict (a foreign entry or a duplicate skill name) is not an error: it is reported, skipped, and makes the exit code 1.
 - A bug is a defect. It is never put in the E channel: a rule module that cannot be imported, or a report that fails to encode, dies.
 
 ## Considered Options
@@ -143,6 +145,45 @@ runDrift({ json })
       → fake UpstreamApi layer
   → encodeReport (DriftReport schema) | describe
   → captureStdio
+```
+
+### link
+
+Production:
+
+```ts
+bun run src/cli.ts link [--user] [--remove]
+  → command link
+    → unknown argument → stderr usage, exit 1
+    → userTarget (--user)                      // Config HOME → ConfigError → stderr, exit 1
+    → link (default)
+      → readRepo
+        → RepoFs.layer(cwd)                    // node:fs
+      → byName                                 // duplicate name → conflict
+      → slotOf (per skill)
+        → RepoFs.layer(cwd)                    // lstat, readlink, realpath
+      → RepoFs.layer(cwd)                      // symlink, unlink (linked, relinked)
+      → ownLinks → prune                       // RepoFs list, unlink
+    → unlinkAll (--remove)
+      → ownLinks
+        → slotOf (per entry)
+      → RepoFs.layer(cwd)                      // unlink
+    → reportFsError (RepoFsError → stderr, exit 1)
+    → Stdio.layer                              // console
+```
+
+Tests:
+
+```ts
+runCli(["link", ...flags], root, { HOME })
+  → command link
+    → userTarget                               // HOME = throwaway dir
+    → link | unlinkAll
+      → readRepo
+        → RepoFs.layer(throwaway tree)
+      → slotOf
+      → ownLinks
+    → Stdio.layer
 ```
 
 ### drift-issues script
