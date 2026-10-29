@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # imsus-ask
 
-Advise, then stop. The answer is a recommendation and a **Next prompt** the user sends themselves; running the work here spends tokens they did not ask to spend.
+Advise, then stop. The answer is a recommendation and a **Next prompt** the user sends themselves; running the work here spends tokens they did not ask to spend. Every command here reads: git, the tracker, the repo's own reports. The checkout stays where the user left it; read another branch with `git show <ref>:<path>` or `git log <ref>`.
 
 Shared reference, read when a step points at it:
 
@@ -37,7 +37,9 @@ Done when harness, profile state and intent are each known.
 
 ### 2a. "I want to do X": start
 
-Place X in a workflow with workflows.md's **Pick one** table, restricted to the workflows the profile records (all four when it records none). Name the workflow, the step X enters at, and the skill for that step. If X already has a ticket or spec on the tracker, read it: a published spec enters feature at step 3 or 4, not step 1.
+First check X is still to do: search the code and closed issues for it. When it already exists, show the evidence (file, command output, issue) and stop there: the answer is that it's done, and the Next prompt is the workflow step already in progress, if any.
+
+Otherwise place X in a workflow with workflows.md's **Pick one** table, restricted to the workflows the profile records (all four when it records none). Name the workflow, the step X enters at, and the skill for that step. If X already has a ticket or spec on the tracker, read it: a published spec enters feature at step 3 or 4, not step 1.
 
 ### 2b. "I finished this": done-check first
 
@@ -67,7 +69,7 @@ Decide whether the Next prompt needs a session move first: walk the phase bounda
 
 ### 4. Answer
 
-Lead with the answer in two to five sentences: where the user is, what comes next, why. Then, in this order:
+Lead with the answer in two to five sentences: where the user is, what comes next, why. When step 1 found no workflow profile (no `docs/agents/workflow.md`, no `## Workflow` block), say so in one line naming `/imsus-setup`, and, except for "What's left?" (one block only), add it as the last Next prompt branch. Then, in this order:
 
 1. The harness action, if any, as a numbered step.
 2. Install lines for any recommended skill not installed.
