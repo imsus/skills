@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- imsus-ask: reads only and leaves the checkout where it was; "Start something" first checks X isn't already built; a missing workflow profile is named in the answer with `/imsus-setup` as a branch.
+
 ## 0.1.0
 
 - Initial release: imsus-ask, imsus-setup and imsus-retro, with the generated skill catalog (in imsus-ask and imsus-setup) and the shared references (workflows, harness capabilities, curated outside skills) that imsus-ask copies from imsus-setup.
