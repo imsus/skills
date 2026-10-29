@@ -32,10 +32,11 @@ export interface CliResult {
 
 const CLI = resolve(import.meta.dir, "../../src/cli.ts");
 
-/** Run the real CLI as a subprocess with `root` as the repo root (its cwd). */
-export async function runCli(args: string[], root: string): Promise<CliResult> {
+/** Run the real CLI as a subprocess with `root` as the repo root (its cwd). `env` overrides variables such as HOME. */
+export async function runCli(args: string[], root: string, env: Record<string, string> = {}): Promise<CliResult> {
   const proc = Bun.spawn(["bun", "run", CLI, ...args], {
     cwd: root,
+    env: { ...process.env, ...env },
     stdout: "pipe",
     stderr: "pipe",
   });
