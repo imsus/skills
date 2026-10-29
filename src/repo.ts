@@ -101,3 +101,8 @@ export function readRepo(root: string): Repo {
   });
   return { root, categories };
 }
+
+/** Every skill folder in the repo, category by category. */
+export function allSkills(repo: Repo): SkillFolder[] {
+  return repo.categories.flatMap((c) => c.skills);
+}
