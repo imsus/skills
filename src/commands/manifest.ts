@@ -1,7 +1,8 @@
 import { Effect, Option } from "effect";
 import type { Command } from "../command";
 import { reportFsError } from "../report";
-import { CATALOG_DESTINATIONS, CATALOG_FILE, generateCatalog } from "../catalog";
+import { CATALOG_FILE, generateCatalog } from "../catalog";
+import { META_SKILLS } from "../meta-skills";
 import { allSkills, readRepo, type Repo } from "../repo";
 import type { RepoFsError } from "../errors";
 import { RepoFs } from "../repo-fs";
@@ -67,7 +68,7 @@ export const generatedFiles = (repo: Repo): Effect.Effect<GeneratedFile[], RepoF
   Effect.gen(function* () {
     const catalog = generateCatalog(repo);
     const catalogs = allSkills(repo)
-      .filter((s) => CATALOG_DESTINATIONS.includes(s.name))
+      .filter((s) => META_SKILLS.catalogDestinations.includes(s.name))
       .map((s) => ({ path: `${s.path}/${CATALOG_FILE}`, text: catalog }));
     const references = yield* sharedReferenceCopies(repo);
     return [{ path: MANIFEST_PATH, text: generateManifest(repo) }, ...catalogs, ...references];

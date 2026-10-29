@@ -1,9 +1,7 @@
 import { Option, Result } from "effect";
 import type { Category, Repo, Skill } from "./repo";
 
-/** Skills that carry a copy of the catalog, at `<skill>/${CATALOG_FILE}`. */
-export const CATALOG_DESTINATIONS = ["imsus-ask", "imsus-setup"];
-/** The catalog's path inside each destination skill folder. */
+/** The catalog's path inside each catalog destination skill folder. */
 export const CATALOG_FILE = "references/catalog.md";
 
 const HEADER = "| Skill | Category | Description | Source |\n| --- | --- | --- | --- |";
