@@ -18,7 +18,7 @@ function fakeClient() {
   const issues: { number: number; title: string; body: string; labels: string[] }[] = [];
   const client: IssueClient = {
     async findOpen(title) { return issues.find((i) => i.title === title) ?? null; },
-    async create(i) { const n = { number: issues.length + 1, ...i }; issues.push(n); return n.number; },
+    async create(i) { issues.push({ number: issues.length + 1, ...i }); },
     async update(number, body) { issues.find((i) => i.number === number)!.body = body; },
   };
   return { client, issues };

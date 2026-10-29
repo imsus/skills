@@ -12,7 +12,7 @@ export interface NewIssue {
 export interface IssueClient {
   /** The open issue with exactly this title, if any. */
   findOpen(title: string): Promise<{ number: number } | null>;
-  create(issue: NewIssue): Promise<number>;
+  create(issue: NewIssue): Promise<void>;
   update(number: number, body: string): Promise<void>;
 }
 

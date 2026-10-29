@@ -21,4 +21,4 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run src/cli.ts drift --json > "$RUNNER_TEMP/drift.json"
       - run: gh label create drift --description "Upstream drift" --force
-      - run: bun run src/cli.ts drift-issues "$RUNNER_TEMP/drift.json"
+      - run: bun run scripts/drift-issues.ts "$RUNNER_TEMP/drift.json"
