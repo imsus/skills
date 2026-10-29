@@ -6,7 +6,7 @@ Issues and specs live in GitHub Issues on imsus/skills (via `gh`). See `docs/age
 
 ### Code style
 
-TypeScript in `src/` and `scripts/` follows the [Design Thinking](https://gist.github.com/r17x/90eb2f7be93932b5693753aedb09c01a) method on Effect. See `docs/adr/0002-effect-and-design-thinking.md`. When you show a call graph, execution flow or architecture trace, use the gist's indented `→` format in a `ts` code block, with Production and Tests as separate sections when they differ.
+TypeScript in `src/` and `scripts/` follows the Design Thinking method on Effect: read `docs/design-thinking.md` before designing a change, and `docs/adr/0002-effect-and-design-thinking.md` for this codebase's shapes, errors and call graphs. Review enforces `CODING_STANDARDS.md`. Show call graphs in the indented `→` format from `docs/design-thinking.md`.
 
 ### Domain docs
 
