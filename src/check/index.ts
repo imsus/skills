@@ -16,7 +16,7 @@ const loadRules = Effect.promise(async (): Promise<Rule[]> => {
     .sort();
   const rules: Rule[] = [];
   for (const f of files) {
-    const mod = (await import(join(RULES_DIR, f))) as { rule?: Rule };
+    const mod: { rule?: Rule } = await import(join(RULES_DIR, f));
     if (typeof mod.rule === "function") rules.push(mod.rule);
   }
   return rules;

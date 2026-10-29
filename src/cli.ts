@@ -14,7 +14,7 @@ async function loadCommands(): Promise<Command[]> {
   const files = readdirSync(COMMANDS_DIR).filter((f) => f.endsWith(".ts"));
   const commands: Command[] = [];
   for (const f of files) {
-    const mod = (await import(join(COMMANDS_DIR, f))) as { command?: Command };
+    const mod: { command?: Command } = await import(join(COMMANDS_DIR, f));
     if (mod.command) commands.push(mod.command);
   }
   return commands.sort((a, b) => a.name.localeCompare(b.name));

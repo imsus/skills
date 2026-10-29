@@ -1,4 +1,4 @@
-import { Cause, Effect, Option, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { CategoryJsonUnreadable, InvalidUpstream, type RepoFsError } from "./errors";
 import { CategoryName, SkillName } from "./ids";
 import { RepoFs } from "./repo-fs";
@@ -91,19 +91,19 @@ export const allSkills = (repo: Repo): Skill[] => repo.categories.flatMap((c) =>
 
 const decodeCategoryJson = Schema.decodeUnknownEffect(CategoryJson);
 
-const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const decodeJsonText = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
 /** `category.json` text -> Loaded. The JSON parser's own message is kept for malformed text. */
 const parseCategoryJson = (text: string): Effect.Effect<CategoryMeta, CategoryJsonUnreadable> =>
   Effect.gen(function* () {
-    const json = yield* Effect.try(() => JSON.parse(text) as unknown);
-    const data = yield* decodeCategoryJson(json);
+    const json = yield* decodeJsonText(text).pipe(
+      Effect.mapError((e) => new CategoryJsonUnreadable({ message: e.message })),
+    );
+    const data = yield* decodeCategoryJson(json).pipe(
+      Effect.mapError(() => new CategoryJsonUnreadable({ message: "not a JSON object" })),
+    );
     return { _tag: "Loaded", ...data } as const;
-  }).pipe(
-    Effect.mapError(
-      (e) => new CategoryJsonUnreadable({ message: Cause.isUnknownError(e) ? messageOf(e.cause) : "not a JSON object" }),
-    ),
-  );
+  });
 
 const MISSING_META: CategoryMeta = { _tag: "Missing" };
 
