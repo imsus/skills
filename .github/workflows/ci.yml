@@ -12,4 +12,5 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run src/cli.ts check
+      - run: bun run src/cli.ts manifest --check
       - run: bun test
