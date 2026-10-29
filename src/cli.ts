@@ -1,7 +1,11 @@
 #!/usr/bin/env bun
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import { Effect, Layer } from "effect";
 import type { Command } from "./command";
+import { UpstreamApi } from "./drift/upstream-api";
+import { RepoFs } from "./repo-fs";
+import { Stdio } from "./stdio";
 
 const COMMANDS_DIR = join(import.meta.dir, "commands");
 
@@ -27,11 +31,6 @@ if (!command) {
   process.exit(1);
 }
 
-process.exit(
-  await command.run({
-    root: process.cwd(),
-    args,
-    out: (l) => console.log(l),
-    err: (l) => console.error(l),
-  }),
-);
+const live = Layer.mergeAll(RepoFs.layer(process.cwd()), Stdio.layer, UpstreamApi.layerGithub);
+
+process.exit(await Effect.runPromise(command.run(args).pipe(Effect.provide(live))));

@@ -47,7 +47,7 @@ bun test
 - The CLI has three subcommands: `check`, `manifest` and `drift`. To add one, add `src/commands/<name>.ts` exporting `command` (see `src/command.ts`). It is discovered automatically.
 - Standalone tooling that is not a subcommand (such as the drift issue sync) lives in `scripts/`.
 - New check rule: add `src/check/rules/<name>.ts` exporting `rule` (see `src/check/rule.ts`). It is discovered automatically.
-- Repo reader: `src/repo.ts` (`readRepo`, `allSkills`). Test trees: `test/helpers/tree.ts` (`buildTree`, `runCli`).
+- Repo reader: `src/repo.ts` (`readRepo`, `allSkills`), an Effect that needs the `RepoFs` service. Test trees: `test/helpers/tree.ts` (`buildTree`, `runCli`); test layers: `test/helpers/layers.ts`. The code follows `docs/adr/0002-effect-and-design-thinking.md`.
 
 ## Own skills and forks
 

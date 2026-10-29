@@ -31,6 +31,14 @@ test("rejects a repo that is not owner/name", () => {
   expect(parseUpstream(upstreamMd({ repo: "just-a-name" })).ok).toBe(false);
 });
 
+test("reports missing fields before format problems, in field order", () => {
+  const r = parseUpstream(upstreamMd({ path: "", repo: "nope", sha: "zz" }));
+  expect(r).toEqual({
+    ok: false,
+    problems: ["missing field: path", 'repo must be owner/name, got "nope"', 'sha must be 40 hex characters, got "zz"'],
+  });
+});
+
 test("no frontmatter is a problem", () => {
   expect(parseUpstream("Just prose.\n")).toEqual({ ok: false, problems: ["no frontmatter block"] });
 });

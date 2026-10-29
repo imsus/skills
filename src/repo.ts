@@ -1,5 +1,7 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { Effect, Schema } from "effect";
+import { CategoryJsonUnreadable } from "./errors";
+import { RepoFs } from "./repo-fs";
+import { UPSTREAM_FILE } from "./upstream";
 
 /** Directory under the repo root that holds the categories. */
 export const SKILLS_DIR = "skills";
@@ -8,106 +10,126 @@ export const CATEGORY_META_FILE = "category.json";
 /** Category changelog file: `skills/<category>/CHANGELOG.md`. */
 export const CHANGELOG_FILE = "CHANGELOG.md";
 
+// ---- Shapes ---------------------------------------------------------------
+
 /**
- * Raw result of reading a category's metadata file. The reader does not
- * validate the contents (that is a check rule's job).
+ * The edge for `category.json`: a JSON object. `description` and `version`
+ * stay `unknown` here because judging them is the category rules' job (each
+ * failure carries its own rule id).
  */
-export type CategoryMeta =
-  | { status: "missing" }
-  | { status: "unreadable"; error: string }
-  | { status: "loaded"; data: Record<string, unknown> };
+export const CategoryJson = Schema.Struct({
+  description: Schema.optionalKey(Schema.Unknown),
+  version: Schema.optionalKey(Schema.Unknown),
+});
 
-export interface SkillFolder {
+/** What reading a category's metadata file produced. The contents are not validated. */
+export const CategoryMeta = Schema.Union([
+  Schema.TaggedStruct("Missing", {}),
+  Schema.TaggedStruct("Unreadable", { error: Schema.String }),
+  Schema.TaggedStruct("Loaded", CategoryJson.fields),
+]);
+export type CategoryMeta = typeof CategoryMeta.Type;
+
+const SkillFields = {
   /** Folder name, e.g. `imsus-foo`. */
-  name: string;
+  name: Schema.String,
   /** Repo-relative path, e.g. `skills/web/imsus-foo`. */
-  path: string;
-  /** Absolute path. */
-  dir: string;
+  path: Schema.String,
   /** Category this folder sits in. */
-  category: string;
+  category: Schema.String,
   /** Names of the entries directly inside the folder, sorted. */
-  files: string[];
+  files: Schema.Array(Schema.String),
   /** Contents of `SKILL.md`, or null if absent. */
-  skillMd: string | null;
-  /** A skill is a fork exactly when its folder contains `UPSTREAM.md`. */
-  isFork: boolean;
-}
+  skillMd: Schema.NullOr(Schema.String),
+};
 
-export interface Category {
+/** A skill the curator wrote from scratch. */
+export const OwnSkill = Schema.TaggedStruct("Own", SkillFields);
+/** A skill copied from an upstream. A skill is a fork exactly when its folder contains `UPSTREAM.md`. */
+export const ForkSkill = Schema.TaggedStruct("Fork", { ...SkillFields, upstreamMd: Schema.String });
+
+export const Skill = Schema.Union([OwnSkill, ForkSkill]);
+export type OwnSkill = typeof OwnSkill.Type;
+export type ForkSkill = typeof ForkSkill.Type;
+export type Skill = typeof Skill.Type;
+
+export const Category = Schema.Struct({
   /** Folder name under `skills/`. */
-  name: string;
+  name: Schema.String,
   /** Repo-relative path, e.g. `skills/web`. */
-  path: string;
-  dir: string;
-  meta: CategoryMeta;
+  path: Schema.String,
+  meta: CategoryMeta,
   /** Names of the entries directly inside the category folder, sorted. */
-  files: string[];
+  files: Schema.Array(Schema.String),
   /** Skill folders, sorted by name. */
-  skills: SkillFolder[];
-}
+  skills: Schema.Array(Skill),
+});
+export type Category = typeof Category.Type;
 
-export interface Repo {
-  root: string;
+export const Repo = Schema.Struct({
   /** Categories, sorted by name. */
-  categories: Category[];
-}
+  categories: Schema.Array(Category),
+});
+export type Repo = typeof Repo.Type;
 
-function subdirs(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((n) => !n.startsWith(".") && statSync(join(dir, n)).isDirectory())
-    .sort();
-}
+export const isFork = (skill: Skill): skill is ForkSkill => skill._tag === "Fork";
 
-function readMeta(categoryDir: string): CategoryMeta {
-  const file = join(categoryDir, CATEGORY_META_FILE);
-  if (!existsSync(file)) return { status: "missing" };
-  try {
-    const data: unknown = JSON.parse(readFileSync(file, "utf8"));
-    if (typeof data !== "object" || data === null || Array.isArray(data)) {
-      return { status: "unreadable", error: "not a JSON object" };
-    }
-    return { status: "loaded", data: data as Record<string, unknown> };
-  } catch (e) {
-    return { status: "unreadable", error: (e as Error).message };
-  }
-}
+/** Every skill folder in the repo, category by category. */
+export const allSkills = (repo: Repo): Skill[] => repo.categories.flatMap((c) => c.skills);
 
-function readSkill(root: string, category: string, name: string): SkillFolder {
+// ---- Reading --------------------------------------------------------------
+
+const decodeCategoryJson = Schema.decodeUnknownEffect(CategoryJson);
+
+/** `category.json` text -> Loaded. The JSON parser's own message is kept for malformed text. */
+const parseCategoryJson = (text: string) =>
+  Effect.gen(function* () {
+    const json = yield* Effect.try({
+      try: () => JSON.parse(text) as unknown,
+      catch: (e) => new CategoryJsonUnreadable({ message: e instanceof Error ? e.message : String(e) }),
+    });
+    const data = yield* decodeCategoryJson(json).pipe(
+      Effect.mapError(() => new CategoryJsonUnreadable({ message: "not a JSON object" })),
+    );
+    return { _tag: "Loaded", ...data } as const;
+  });
+
+const readMeta = Effect.fnUntraced(
+  function* (categoryPath: string) {
+    const fs = yield* RepoFs;
+    const text = yield* fs.readText(`${categoryPath}/${CATEGORY_META_FILE}`);
+    if (text === null) return { _tag: "Missing" } as CategoryMeta;
+    return (yield* parseCategoryJson(text)) as CategoryMeta;
+  },
+  Effect.catchTag("CategoryJsonUnreadable", (e) => Effect.succeed({ _tag: "Unreadable", error: e.message } as CategoryMeta)),
+);
+
+const readSkill = Effect.fnUntraced(function* (category: string, name: string) {
+  const fs = yield* RepoFs;
   const path = `${SKILLS_DIR}/${category}/${name}`;
-  const dir = join(root, path);
-  const files = readdirSync(dir).sort();
-  const skillMdPath = join(dir, "SKILL.md");
+  const files = yield* fs.list(path);
+  const skillMd = yield* fs.readText(`${path}/SKILL.md`);
+  const base = { name, path, category, files, skillMd };
+  if (!files.includes(UPSTREAM_FILE)) return { _tag: "Own", ...base } as Skill;
+  const upstreamMd = yield* fs.readText(`${path}/${UPSTREAM_FILE}`);
+  return { _tag: "Fork", ...base, upstreamMd: upstreamMd ?? "" } as Skill;
+});
+
+const readCategory = Effect.fnUntraced(function* (name: string) {
+  const fs = yield* RepoFs;
+  const path = `${SKILLS_DIR}/${name}`;
   return {
     name,
     path,
-    dir,
-    category,
-    files,
-    skillMd: existsSync(skillMdPath) ? readFileSync(skillMdPath, "utf8") : null,
-    isFork: files.includes("UPSTREAM.md"),
-  };
-}
+    meta: yield* readMeta(path),
+    files: yield* fs.list(path),
+    skills: yield* Effect.forEach(yield* fs.listDirs(path), (skill) => readSkill(name, skill)),
+  } satisfies Category;
+});
 
-/** Read the repo layout. Never throws on malformed content; rules report it. */
-export function readRepo(root: string): Repo {
-  const skillsRoot = join(root, SKILLS_DIR);
-  const categories = subdirs(skillsRoot).map((name): Category => {
-    const dir = join(skillsRoot, name);
-    return {
-      name,
-      path: `${SKILLS_DIR}/${name}`,
-      dir,
-      meta: readMeta(dir),
-      files: readdirSync(dir).sort(),
-      skills: subdirs(dir).map((skill) => readSkill(root, name, skill)),
-    };
-  });
-  return { root, categories };
-}
-
-/** Every skill folder in the repo, category by category. */
-export function allSkills(repo: Repo): SkillFolder[] {
-  return repo.categories.flatMap((c) => c.skills);
-}
+/** Read the repo layout. Malformed content is data (`Unreadable`), never an error; rules report it. */
+export const readRepo = Effect.gen(function* () {
+  const fs = yield* RepoFs;
+  const categories = yield* Effect.forEach(yield* fs.listDirs(SKILLS_DIR), (name) => readCategory(name));
+  return { categories } satisfies Repo;
+});

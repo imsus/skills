@@ -1,16 +1,15 @@
-export interface CommandContext {
-  /** Repo root (the process's cwd). */
-  root: string;
-  /** Arguments after the subcommand name. */
-  args: string[];
-  /** Write a line to stdout. */
-  out(line: string): void;
-  /** Write a line to stderr. */
-  err(line: string): void;
-}
+import { Effect } from "effect";
+import type { UpstreamApi } from "./drift/upstream-api";
+import type { RepoFsError } from "./errors";
+import type { RepoFs } from "./repo-fs";
+import { Stdio } from "./stdio";
+
+/** Everything a command may need. The CLI provides all of it; each command uses a subset. */
+export type AppServices = RepoFs | Stdio | UpstreamApi;
 
 /**
- * A CLI subcommand. Returns the process exit code.
+ * A CLI subcommand. Its effect succeeds with the process exit code and has
+ * no error left: each command handles its own E in its `.pipe()`.
  *
  * To add a subcommand, create `src/commands/<name>.ts` exporting
  * `command: Command`. Command files are discovered automatically.
@@ -20,5 +19,14 @@ export interface Command {
   name: string;
   /** One line shown in the usage text. */
   summary: string;
-  run(ctx: CommandContext): Promise<number> | number;
+  /** `args` are the arguments after the subcommand name. */
+  run(args: readonly string[]): Effect.Effect<number, never, AppServices>;
 }
+
+/** Last-resort handler for an unreadable or unwritable repo: say so on stderr, exit 1. */
+export const reportFsError = (e: RepoFsError) =>
+  Effect.gen(function* () {
+    const io = yield* Stdio;
+    yield* io.err(`${e.path}: ${e.message}`);
+    return 1;
+  });

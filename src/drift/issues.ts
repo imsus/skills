@@ -1,52 +1,59 @@
-import type { DriftEntry } from "./run";
-
-export const DRIFT_LABEL = "drift";
-
-export interface NewIssue {
-  title: string;
-  body: string;
-  labels: string[];
-}
-
-/** The slice of an issue tracker the sync needs. Injected so tests can fake it. */
-export interface IssueClient {
-  /** The open issue with exactly this title, if any. */
-  findOpen(title: string): Promise<{ number: number } | null>;
-  create(issue: NewIssue): Promise<void>;
-  update(number: number, body: string): Promise<void>;
-}
+import { Effect } from "effect";
+import { DriftReportError } from "../errors";
+import { RepoFs } from "../repo-fs";
+import { DRIFT_LABEL, IssueClient } from "./issue-client";
+import { decodeReport, type DriftEntry } from "./shapes";
 
 export const issueTitle = (e: DriftEntry) => `Drift: ${e.category}/${e.skill}`;
 
-function issueBody(e: DriftEntry): string {
+/** The issue text for a fork that needs attention; null for an up-to-date fork. */
+function issueBody(e: DriftEntry): string | null {
   const where = `\`${e.path}\``;
-  if (e.outcome === "unreachable") {
-    return [
-      `Upstream of ${where} could not be checked.`,
-      "",
-      `- Upstream: ${e.upstreamRepo ?? "unknown"} (${e.upstreamPath ?? "unknown"})`,
-      `- Recorded SHA: ${e.recordedSha ?? "unknown"}`,
-      `- Error: ${e.error ?? "unknown"}`,
-    ].join("\n");
+  const { repo, path, sha } = e.upstream;
+  switch (e.outcome._tag) {
+    case "Unreachable":
+      return [
+        `Upstream of ${where} could not be checked.`,
+        "",
+        `- Upstream: ${repo} (${path})`,
+        `- Recorded SHA: ${sha}`,
+        `- Error: ${e.outcome.error}`,
+      ].join("\n");
+    case "UpToDate":
+      return null;
+    case "Drifted":
+      return [
+        `Upstream of ${where} has new commits since the recorded SHA.`,
+        "",
+        `- Upstream: ${repo} (${path})`,
+        `- Recorded SHA: ${sha}`,
+        `- Latest SHA: ${e.outcome.latestSha}`,
+        `- Compare: ${e.outcome.compareUrl}`,
+      ].join("\n");
   }
-  return [
-    `Upstream of ${where} has new commits since the recorded SHA.`,
-    "",
-    `- Upstream: ${e.upstreamRepo} (${e.upstreamPath})`,
-    `- Recorded SHA: ${e.recordedSha}`,
-    `- Latest SHA: ${e.latestSha}`,
-    `- Compare: ${e.compareUrl}`,
-  ].join("\n");
 }
 
 /** Open or update one issue per drifted or unreachable fork. Never closes anything. */
-export async function syncDriftIssues(entries: DriftEntry[], client: IssueClient): Promise<void> {
-  for (const e of entries) {
-    if (e.outcome === "up-to-date") continue;
-    const title = issueTitle(e);
-    const body = issueBody(e);
-    const existing = await client.findOpen(title);
-    if (existing) await client.update(existing.number, body);
-    else await client.create({ title, body, labels: [DRIFT_LABEL] });
-  }
-}
+export const syncDriftIssues = (entries: readonly DriftEntry[]) =>
+  Effect.gen(function* () {
+    const issues = yield* IssueClient;
+    for (const e of entries) {
+      const body = issueBody(e);
+      if (body === null) continue;
+      const title = issueTitle(e);
+      const existing = yield* issues.findOpen(title);
+      if (existing) yield* issues.update(existing.number, body);
+      else yield* issues.create({ title, body, labels: [DRIFT_LABEL] });
+    }
+  });
+
+/** `scripts/drift-issues.ts`: read `drift --json` output from `file`, then sync the issues. */
+export const syncDriftIssuesFromFile = (file: string) =>
+  Effect.gen(function* () {
+    const fs = yield* RepoFs;
+    const text = yield* fs.readText(file);
+    if (text === null) return yield* new DriftReportError({ path: file, message: "no such file" });
+    yield* syncDriftIssues(yield* decodeReport(file, text));
+  }).pipe(
+    Effect.catchTag("RepoFsError", (e) => Effect.fail(new DriftReportError({ path: e.path, message: e.message }))),
+  );

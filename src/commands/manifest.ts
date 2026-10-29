@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import type { Command } from "../command";
+import { Effect } from "effect";
+import { reportFsError, type Command } from "../command";
 import { readRepo, type Repo } from "../repo";
+import { RepoFs } from "../repo-fs";
+import { Stdio } from "../stdio";
 
 export const MANIFEST_PATH = ".claude-plugin/marketplace.json";
 
@@ -22,8 +23,8 @@ interface Plugin {
 export function generateManifest(repo: Repo): string {
   const plugins: Plugin[] = [];
   for (const cat of repo.categories) {
-    if (cat.meta.status !== "loaded") continue;
-    const { description, version } = cat.meta.data;
+    if (cat.meta._tag !== "Loaded") continue;
+    const { description, version } = cat.meta;
     const plugin: Plugin = { name: cat.name, source: "./", skills: [] };
     if (typeof description === "string") plugin.description = description;
     if (typeof version === "string") plugin.version = version;
@@ -49,21 +50,22 @@ export function generateManifest(repo: Repo): string {
 export const command: Command = {
   name: "manifest",
   summary: "Generate .claude-plugin/marketplace.json (--check: fail if stale)",
-  run({ root, args, out, err }) {
-    const expected = generateManifest(readRepo(root));
-    const file = join(root, MANIFEST_PATH);
-    if (args.includes("--check")) {
-      const actual = existsSync(file) ? readFileSync(file, "utf8") : null;
-      if (actual === expected) {
-        out(`${MANIFEST_PATH} is up to date.`);
-        return 0;
+  run: (args) =>
+    Effect.gen(function* () {
+      const fs = yield* RepoFs;
+      const io = yield* Stdio;
+      const expected = generateManifest(yield* readRepo);
+      if (args.includes("--check")) {
+        const actual = yield* fs.readText(MANIFEST_PATH);
+        if (actual === expected) {
+          yield* io.out(`${MANIFEST_PATH} is up to date.`);
+          return 0;
+        }
+        yield* io.err(`${MANIFEST_PATH} is stale. Run: bun run src/cli.ts manifest`);
+        return 1;
       }
-      err(`${MANIFEST_PATH} is stale. Run: bun run src/cli.ts manifest`);
-      return 1;
-    }
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, expected);
-    out(`Wrote ${MANIFEST_PATH}`);
-    return 0;
-  },
+      yield* fs.writeText(MANIFEST_PATH, expected);
+      yield* io.out(`Wrote ${MANIFEST_PATH}`);
+      return 0;
+    }).pipe(Effect.catchTag("RepoFsError", reportFsError)),
 };

@@ -1,5 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
-import { runDrift, type CompareStatus, type UpstreamApi } from "../src/drift/run";
+import { Effect, Layer } from "effect";
+import { runDrift } from "../src/drift/run";
+import { UpstreamApi, type CompareStatus } from "../src/drift/upstream-api";
+import { UpstreamUnreachable } from "../src/errors";
+import { RepoFs } from "../src/repo-fs";
+import { captureStdio } from "./helpers/layers";
 import { buildTree, category, fork, runCli, SHA, upstreamMd, type Tree } from "./helpers/tree";
 
 let tree: Tree;
@@ -7,26 +12,39 @@ afterEach(() => tree?.cleanup());
 
 const NEW_SHA = "fedcba9876543210fedcba9876543210fedcba98";
 
-/** Fake GitHub: `latest` answers the path lookup, `status` answers every compare. */
+/**
+ * Test layer for GitHub: `latest` answers the path lookup (a throw means
+ * unreachable), `status` answers every compare.
+ */
 function api(latest: string | ((repo: string, path: string) => string), status: CompareStatus = "ahead") {
   const calls: string[] = [];
-  const upstream: UpstreamApi = {
-    async latestCommit(repo, path) {
-      calls.push(`latest ${repo}:${path}`);
-      return typeof latest === "function" ? latest(repo, path) : latest;
-    },
-    async compare(repo, base, head) {
-      calls.push(`compare ${repo} ${base}...${head}`);
-      return status;
-    },
-  };
+  const upstream = Layer.succeed(
+    UpstreamApi,
+    UpstreamApi.of({
+      latestCommit: (repo, path) =>
+        Effect.try({
+          try: () => {
+            calls.push(`latest ${repo}:${path}`);
+            return typeof latest === "function" ? latest(repo, path) : latest;
+          },
+          catch: (e) => new UpstreamUnreachable({ repo, message: (e as Error).message }),
+        }),
+      compare: (repo, base, head) =>
+        Effect.sync(() => {
+          calls.push(`compare ${repo} ${base}...${head}`);
+          return status;
+        }),
+    }),
+  );
   return { upstream, calls };
 }
 
-async function drift(upstream: UpstreamApi, json = false) {
+async function drift(upstream: Layer.Layer<UpstreamApi>, json = false) {
   const lines: string[] = [];
   const errs: string[] = [];
-  const code = await runDrift({ root: tree.root, upstream, json, out: (l) => lines.push(l), err: (l) => errs.push(l) });
+  const code = await Effect.runPromise(
+    runDrift({ json }).pipe(Effect.provide(Layer.mergeAll(RepoFs.layer(tree.root), captureStdio(lines, errs), upstream))),
+  );
   return { code, text: lines.join("\n"), errs };
 }
 
