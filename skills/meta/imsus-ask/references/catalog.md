@@ -13,5 +13,5 @@ npx skills add imsus/skills --skill imsus-ask --skill imsus-setup
 
 | Skill | Category | Description | Source |
 | --- | --- | --- | --- |
-| imsus-ask | meta | Answers what to do next in this project's workflow and ends with the exact Next prompt to send. Placeholder; the router is not written yet. | own |
+| imsus-ask | meta | Tells you what to do next in this project's workflow (where to start a task, whether finished work is really done, what's left) and ends with the exact Next prompt to send. | own |
 | imsus-setup | meta | Sets up a project's workflow profile, tooling and imsus skills. Placeholder; the setup steps are not written yet. | own |
