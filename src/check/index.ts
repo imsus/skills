@@ -1,7 +1,8 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { reportFsError, type Command } from "../command";
+import type { Command } from "../command";
+import { reportFsError } from "../report";
 import { readRepo } from "../repo";
 import { Stdio } from "../stdio";
 import type { Rule, Violation } from "./rule";

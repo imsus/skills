@@ -1,5 +1,6 @@
 import { Effect } from "effect";
-import { reportFsError, type Command } from "../command";
+import type { Command } from "../command";
+import { reportFsError } from "../report";
 import { readRepo, type Repo } from "../repo";
 import { RepoFs } from "../repo-fs";
 import { Stdio } from "../stdio";

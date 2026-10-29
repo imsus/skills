@@ -1,8 +1,7 @@
-import { Effect } from "effect";
+import type { Effect } from "effect";
 import type { UpstreamApi } from "./drift/upstream-api";
-import type { RepoFsError } from "./errors";
 import type { RepoFs } from "./repo-fs";
-import { Stdio } from "./stdio";
+import type { Stdio } from "./stdio";
 
 /** Everything a command may need. The CLI provides all of it; each command uses a subset. */
 export type AppServices = RepoFs | Stdio | UpstreamApi;
@@ -22,11 +21,3 @@ export interface Command {
   /** `args` are the arguments after the subcommand name. */
   run(args: readonly string[]): Effect.Effect<number, never, AppServices>;
 }
-
-/** Last-resort handler for an unreadable or unwritable repo: say so on stderr, exit 1. */
-export const reportFsError = (e: RepoFsError) =>
-  Effect.gen(function* () {
-    const io = yield* Stdio;
-    yield* io.err(`${e.path}: ${e.message}`);
-    return 1;
-  });

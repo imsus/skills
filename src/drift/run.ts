@@ -1,5 +1,5 @@
 import { Array, Effect, Option } from "effect";
-import { reportFsError } from "../command";
+import { reportFsError } from "../report";
 import { InvalidUpstream } from "../errors";
 import { allSkills, isFork, readRepo, type ForkSkill } from "../repo";
 import { Stdio } from "../stdio";
