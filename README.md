@@ -109,11 +109,17 @@ Each category is one plugin, listed in `.claude-plugin/marketplace.json`.
 `.claude-plugin/marketplace.json` is generated from the folder tree. Do not edit it by hand.
 
 ```
-bun run manifest                        # regenerate
-bun run src/cli.ts manifest --check     # exit non-zero if stale (CI runs this)
+bun run manifest                        # regenerate the manifest and the skill catalogs
+bun run src/cli.ts manifest --check     # exit non-zero if any is stale (CI runs this)
 ```
 
 A category whose `category.json` is missing or unreadable gets no plugin until `check` is clean.
+
+### The skill catalog
+
+`manifest` also writes the skill catalog, `references/catalog.md`, into `imsus-ask` and `imsus-setup` (when those skills exist). It lists, per category, the plugin and `npx skills` install lines, and per skill its name, category, description, and whether it is an own skill or a fork (with the upstream `repo`). Do not edit it by hand. `manifest --check` fails when either copy is stale, which includes the two copies differing.
+
+Every file `manifest` owns is one entry of `generatedFiles` in `src/commands/manifest.ts` (a path and its exact text); `manifest` writes them all and `--check` compares them all. To generate another file, add an entry there.
 
 ## Versioning
 

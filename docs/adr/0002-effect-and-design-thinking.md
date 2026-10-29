@@ -70,8 +70,10 @@ bun run src/cli.ts manifest [--check]
   → command manifest
     → readRepo
       → RepoFs.layer(cwd)                      // node:fs
-    → generateManifest
-    → RepoFs.layer(cwd)                        // readText / writeText of the manifest
+    → generatedFiles
+      → generateManifest
+      → generateCatalog (one copy per catalog destination: imsus-ask, imsus-setup)
+    → RepoFs.layer(cwd)                        // readText / writeText of each generated file
     → reportFsError (RepoFsError → stderr, exit 1)
     → Stdio.layer                              // console
 ```
@@ -83,7 +85,9 @@ runCli(["manifest"])
   → command manifest
     → readRepo
       → RepoFs.layer(throwaway tree)
-    → generateManifest
+    → generatedFiles
+      → generateManifest
+      → generateCatalog
     → RepoFs.layer(throwaway tree)
     → Stdio.layer
 ```

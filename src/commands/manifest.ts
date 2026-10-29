@@ -1,7 +1,8 @@
 import { Effect, Option } from "effect";
 import type { Command } from "../command";
 import { reportFsError } from "../report";
-import { readRepo, type Repo } from "../repo";
+import { CATALOG_DESTINATIONS, CATALOG_FILE, generateCatalog } from "../catalog";
+import { allSkills, readRepo, type Repo } from "../repo";
 import { RepoFs } from "../repo-fs";
 import { Stdio } from "../stdio";
 
@@ -48,25 +49,45 @@ export function generateManifest(repo: Repo): string {
   return JSON.stringify(manifest, null, 2) + "\n";
 }
 
+/** A file `manifest` owns: its repo-relative path and the exact text it must hold. */
+export interface GeneratedFile {
+  path: string;
+  text: string;
+}
+
+/**
+ * Every file generated from the folder tree: the marketplace manifest, and
+ * one catalog copy in each catalog destination skill present in the repo.
+ * `manifest` writes them all; `--check` fails on any that differs.
+ */
+export function generatedFiles(repo: Repo): GeneratedFile[] {
+  const catalog = generateCatalog(repo);
+  const copies = allSkills(repo)
+    .filter((s) => CATALOG_DESTINATIONS.includes(s.name))
+    .map((s) => ({ path: `${s.path}/${CATALOG_FILE}`, text: catalog }));
+  return [{ path: MANIFEST_PATH, text: generateManifest(repo) }, ...copies];
+}
+
 export const command: Command = {
   name: "manifest",
-  summary: "Generate .claude-plugin/marketplace.json (--check: fail if stale)",
+  summary: "Generate .claude-plugin/marketplace.json and the skill catalogs (--check: fail if stale)",
   run: (args) =>
     Effect.gen(function* () {
       const fs = yield* RepoFs;
       const io = yield* Stdio;
-      const expected = generateManifest(yield* readRepo);
-      if (args.includes("--check")) {
-        const actual = yield* fs.readText(MANIFEST_PATH);
-        if (Option.exists(actual, (text) => text === expected)) {
-          yield* io.out(`${MANIFEST_PATH} is up to date.`);
-          return 0;
-        }
-        yield* io.err(`${MANIFEST_PATH} is stale. Run: bun run src/cli.ts manifest`);
-        return 1;
+      const files = generatedFiles(yield* readRepo);
+      if (!args.includes("--check")) {
+        yield* Effect.forEach(files, (f) => Effect.andThen(fs.writeText(f.path, f.text), io.out(`Wrote ${f.path}`)));
+        return 0;
       }
-      yield* fs.writeText(MANIFEST_PATH, expected);
-      yield* io.out(`Wrote ${MANIFEST_PATH}`);
-      return 0;
+      const stale = yield* Effect.filter(files, (f) =>
+        Effect.map(fs.readText(f.path), (actual) => !Option.exists(actual, (text) => text === f.text)),
+      );
+      if (stale.length === 0) {
+        yield* io.out("Generated files are up to date.");
+        return 0;
+      }
+      yield* Effect.forEach(stale, (f) => io.err(`${f.path} is stale. Run: bun run src/cli.ts manifest`));
+      return 1;
     }).pipe(Effect.catchTag("RepoFsError", reportFsError)),
 };

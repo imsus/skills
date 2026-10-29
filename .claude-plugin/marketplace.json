@@ -5,5 +5,16 @@
     "name": "Imam Susanto",
     "url": "https://github.com/imsus"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "description": "Skills that set up, guide and improve a project's workflow.",
+      "name": "meta",
+      "skills": [
+        "./skills/meta/imsus-ask",
+        "./skills/meta/imsus-setup"
+      ],
+      "source": "./",
+      "version": "0.1.0"
+    }
+  ]
 }
