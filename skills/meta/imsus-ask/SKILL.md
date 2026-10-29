@@ -57,7 +57,7 @@ A gap makes the Next prompt the one that closes it (commit, push, `/pr`, fix a f
 1. Run the frontier query from `docs/agents/issue-tracker.md`, scoped to the spec or map the user names (its sub-issues or task list), else to all open issues: open, no open blocker, unassigned.
 2. Cross-check with git: an open issue whose commits already landed (`git log --grep '#<n>'` on the main or integration branch) is done and waiting to close. Count it as done, and its dependents as unblocked by it.
 3. Read git state: current branch, `git worktree list`, open PRs (`gh pr list` or equivalent), and branches with unmerged work.
-4. Answer with the frontier (number, title, one line each), work in flight from git, and which item comes first: in-flight work before new work, then frontier order.
+4. Answer with the frontier (number, title, one line each), work in flight from git, and which item comes first: in-flight work before new work, then frontier order. The Next prompt is exactly one block, for that first item: the rest of the frontier is already listed above it, so it is not repeated as branches.
 
 A frontier with several independent tickets can run in parallel: one worktree per ticket (harness.md, Worktrees), or the whole graph via the profile's implement-the-spec skill.
 
@@ -71,12 +71,12 @@ Lead with the answer in two to five sentences: where the user is, what comes nex
 
 1. The harness action, if any, as a numbered step.
 2. Install lines for any recommended skill not installed.
-3. **Next prompt**: one fenced block per branch, the recommended branch first, each under a one-line label saying when to take it. Each block starts with the slash command (or the harness's skill syntax) and is filled with this conversation's specifics: issue numbers, spec, branch, file paths. A placeholder in the block means a detail is still missing; find it or ask.
+3. **Next prompt**: one fenced block per branch, the recommended branch first (for "What's left?", exactly one block: step 2c), each under a one-line label saying when to take it. Each block starts with the slash command (or the harness's skill syntax) and is filled with this conversation's specifics: issue numbers, spec, branch, file paths. A placeholder in the block means a detail is still missing; find it or ask.
 
 ~~~markdown
 **Next prompt**
 
-Recommended: ticket #42 is unblocked and nothing is in flight.
+Recommended: #41 is merged, so ticket #42 is unblocked and nothing is in flight.
 
 ```
 /implement #42
