@@ -87,3 +87,16 @@ export function fork(
   if (opts.license !== null) files[`${base}/LICENSE`] = opts.license ?? "Upstream license\n";
   return files;
 }
+
+/** A category with explicit metadata, for tests that need distinct versions. */
+export function categoryWith(
+  name: string,
+  skills: string[],
+  description: string,
+  version: string,
+): Files {
+  return {
+    ...category(name, skills),
+    [`skills/${name}/category.json`]: categoryJson(description, version),
+  };
+}

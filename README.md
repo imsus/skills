@@ -80,3 +80,43 @@ Own skills are covered by the root MIT [LICENSE](LICENSE) and carry no license f
 ## License
 
 MIT for my own skills (see [LICENSE](LICENSE)). Forks keep their upstream's license.
+
+## Install
+
+Two routes, one tree.
+
+### With `npx skills`
+
+```
+npx skills add imsus/skills
+```
+
+### As Claude Code plugins
+
+```
+/plugin marketplace add imsus/skills
+/plugin install <category>@imsus
+```
+
+Each category is one plugin, listed in `.claude-plugin/marketplace.json`.
+
+### The marketplace manifest
+
+`.claude-plugin/marketplace.json` is generated from the folder tree. Do not edit it by hand.
+
+```
+bun run manifest                        # regenerate
+bun run src/cli.ts manifest --check     # exit non-zero if stale (CI runs this)
+```
+
+A category whose `category.json` is missing or unreadable gets no plugin until `check` is clean.
+
+## Versioning
+
+Each category is versioned independently with semver, in its `category.json`. That version is the plugin version.
+
+- Major: renaming or removing a skill (see [ADR-0001](docs/adr/0001-prefix-every-skill-and-categories-as-plugins.md)).
+- Minor: adding a skill, or a backwards-compatible change to one.
+- Patch: fixes and wording changes.
+
+Regenerate the manifest after any bump.
