@@ -1,7 +1,8 @@
-import { Effect, Schema } from "effect";
-import { CategoryJsonUnreadable } from "./errors";
+import { Cause, Effect, Option, Schema } from "effect";
+import { CategoryJsonUnreadable, InvalidUpstream, type RepoFsError } from "./errors";
+import { CategoryName, SkillName } from "./ids";
 import { RepoFs } from "./repo-fs";
-import { UPSTREAM_FILE } from "./upstream";
+import { parseUpstream, Upstream, UPSTREAM_FILE } from "./upstream";
 
 /** Directory under the repo root that holds the categories. */
 export const SKILLS_DIR = "skills";
@@ -32,21 +33,28 @@ export type CategoryMeta = typeof CategoryMeta.Type;
 
 const SkillFields = {
   /** Folder name, e.g. `imsus-foo`. */
-  name: Schema.String,
+  name: SkillName,
   /** Repo-relative path, e.g. `skills/web/imsus-foo`. */
   path: Schema.String,
   /** Category this folder sits in. */
-  category: Schema.String,
+  category: CategoryName,
   /** Names of the entries directly inside the folder, sorted. */
   files: Schema.Array(Schema.String),
-  /** Contents of `SKILL.md`, or null if absent. */
-  skillMd: Schema.NullOr(Schema.String),
+  /** Contents of `SKILL.md`, if present. */
+  skillMd: Schema.Option(Schema.String),
 };
 
 /** A skill the curator wrote from scratch. */
 export const OwnSkill = Schema.TaggedStruct("Own", SkillFields);
-/** A skill copied from an upstream. A skill is a fork exactly when its folder contains `UPSTREAM.md`. */
-export const ForkSkill = Schema.TaggedStruct("Fork", { ...SkillFields, upstreamMd: Schema.String });
+/**
+ * A skill copied from an upstream. A skill is a fork exactly when its folder
+ * contains `UPSTREAM.md`, which is decoded once, when the repo is read: the
+ * fork carries the `Upstream` it recorded or the `InvalidUpstream` problems.
+ */
+export const ForkSkill = Schema.TaggedStruct("Fork", {
+  ...SkillFields,
+  upstream: Schema.Result(Schema.toType(Upstream), InvalidUpstream),
+});
 
 export const Skill = Schema.Union([OwnSkill, ForkSkill]);
 export type OwnSkill = typeof OwnSkill.Type;
@@ -55,7 +63,7 @@ export type Skill = typeof Skill.Type;
 
 export const Category = Schema.Struct({
   /** Folder name under `skills/`. */
-  name: Schema.String,
+  name: CategoryName,
   /** Repo-relative path, e.g. `skills/web`. */
   path: Schema.String,
   meta: CategoryMeta,
@@ -67,6 +75,8 @@ export const Category = Schema.Struct({
 export type Category = typeof Category.Type;
 
 export const Repo = Schema.Struct({
+  /** Names of the entries directly inside `skills/`, sorted. */
+  files: Schema.Array(Schema.String),
   /** Categories, sorted by name. */
   categories: Schema.Array(Category),
 });
@@ -81,41 +91,58 @@ export const allSkills = (repo: Repo): Skill[] => repo.categories.flatMap((c) =>
 
 const decodeCategoryJson = Schema.decodeUnknownEffect(CategoryJson);
 
-/** `category.json` text -> Loaded. The JSON parser's own message is kept for malformed text. */
-const parseCategoryJson = (text: string) =>
-  Effect.gen(function* () {
-    const json = yield* Effect.try({
-      try: () => JSON.parse(text) as unknown,
-      catch: (e) => new CategoryJsonUnreadable({ message: e instanceof Error ? e.message : String(e) }),
-    });
-    const data = yield* decodeCategoryJson(json).pipe(
-      Effect.mapError(() => new CategoryJsonUnreadable({ message: "not a JSON object" })),
-    );
-    return { _tag: "Loaded", ...data } as const;
-  });
+const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-const readMeta = Effect.fnUntraced(
-  function* (categoryPath: string) {
+/** `category.json` text -> Loaded. The JSON parser's own message is kept for malformed text. */
+const parseCategoryJson = (text: string): Effect.Effect<CategoryMeta, CategoryJsonUnreadable> =>
+  Effect.gen(function* () {
+    const json = yield* Effect.try(() => JSON.parse(text) as unknown);
+    const data = yield* decodeCategoryJson(json);
+    return { _tag: "Loaded", ...data } as const;
+  }).pipe(
+    Effect.mapError(
+      (e) => new CategoryJsonUnreadable({ message: Cause.isUnknownError(e) ? messageOf(e.cause) : "not a JSON object" }),
+    ),
+  );
+
+const MISSING_META: CategoryMeta = { _tag: "Missing" };
+
+const readMeta = (categoryPath: string): Effect.Effect<CategoryMeta, RepoFsError, RepoFs> =>
+  Effect.gen(function* () {
     const fs = yield* RepoFs;
     const text = yield* fs.readText(`${categoryPath}/${CATEGORY_META_FILE}`);
-    if (text === null) return { _tag: "Missing" } as CategoryMeta;
-    return (yield* parseCategoryJson(text)) as CategoryMeta;
-  },
-  Effect.catchTag("CategoryJsonUnreadable", (e) => Effect.succeed({ _tag: "Unreadable", error: e.message } as CategoryMeta)),
-);
+    return yield* Option.match(text, { onNone: () => Effect.succeed(MISSING_META), onSome: parseCategoryJson });
+  }).pipe(
+    Effect.catchTag("CategoryJsonUnreadable", (e) =>
+      Effect.succeed<CategoryMeta>({ _tag: "Unreadable", error: e.message }),
+    ),
+  );
 
-const readSkill = Effect.fnUntraced(function* (category: string, name: string) {
+/** A fork's `UPSTREAM.md`, decoded. A file that cannot be read is as invalid as one that does not parse. */
+const readUpstream = (skillPath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* RepoFs;
+    const text = yield* fs.readText(`${skillPath}/${UPSTREAM_FILE}`);
+    return yield* parseUpstream(skillPath, Option.getOrElse(text, () => ""));
+  }).pipe(
+    Effect.catchTag("RepoFsError", (e) =>
+      Effect.fail(new InvalidUpstream({ path: skillPath, problems: [`cannot read ${UPSTREAM_FILE}: ${e.message}`] })),
+    ),
+  );
+
+const readSkill = Effect.fnUntraced(function* (category: CategoryName, name: SkillName) {
   const fs = yield* RepoFs;
   const path = `${SKILLS_DIR}/${category}/${name}`;
   const files = yield* fs.list(path);
   const skillMd = yield* fs.readText(`${path}/SKILL.md`);
   const base = { name, path, category, files, skillMd };
-  if (!files.includes(UPSTREAM_FILE)) return { _tag: "Own", ...base } as Skill;
-  const upstreamMd = yield* fs.readText(`${path}/${UPSTREAM_FILE}`);
-  return { _tag: "Fork", ...base, upstreamMd: upstreamMd ?? "" } as Skill;
+  if (!files.includes(UPSTREAM_FILE)) return { _tag: "Own", ...base } satisfies OwnSkill;
+  // Divergent strategy: this fork's invalid UPSTREAM.md is data on the fork, while the reads above stay fatal.
+  const upstream = yield* Effect.result(readUpstream(path));
+  return { _tag: "Fork", ...base, upstream } satisfies ForkSkill;
 });
 
-const readCategory = Effect.fnUntraced(function* (name: string) {
+const readCategory = Effect.fnUntraced(function* (name: CategoryName) {
   const fs = yield* RepoFs;
   const path = `${SKILLS_DIR}/${name}`;
   return {
@@ -123,13 +150,14 @@ const readCategory = Effect.fnUntraced(function* (name: string) {
     path,
     meta: yield* readMeta(path),
     files: yield* fs.list(path),
-    skills: yield* Effect.forEach(yield* fs.listDirs(path), (skill) => readSkill(name, skill)),
+    skills: yield* Effect.forEach(yield* fs.listDirs(path), (skill) => readSkill(name, SkillName.make(skill))),
   } satisfies Category;
 });
 
-/** Read the repo layout. Malformed content is data (`Unreadable`), never an error; rules report it. */
+/** Read the repo layout. Malformed content is data (`Unreadable`, `InvalidUpstream`), never an error; rules report it. */
 export const readRepo = Effect.gen(function* () {
   const fs = yield* RepoFs;
-  const categories = yield* Effect.forEach(yield* fs.listDirs(SKILLS_DIR), (name) => readCategory(name));
-  return { categories } satisfies Repo;
+  const files = yield* fs.list(SKILLS_DIR);
+  const categories = yield* Effect.forEach(yield* fs.listDirs(SKILLS_DIR), (name) => readCategory(CategoryName.make(name)));
+  return { files, categories } satisfies Repo;
 });

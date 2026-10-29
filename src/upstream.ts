@@ -1,5 +1,7 @@
-import { Schema, SchemaIssue, SchemaTransformation } from "effect";
+import { Effect, Option, Schema, SchemaIssue, SchemaTransformation } from "effect";
+import { InvalidUpstream } from "./errors";
 import { parseFrontmatter } from "./frontmatter";
+import { CommitSha, UpstreamRepo } from "./ids";
 
 /** Name of the attribution file whose presence makes a skill folder a fork. */
 export const UPSTREAM_FILE = "UPSTREAM.md";
@@ -18,21 +20,19 @@ const required = (name: string) =>
  */
 export const Upstream = Schema.Struct({
   /** Upstream repository, `owner/name`. */
-  repo: required("repo").check(Schema.isPattern(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/, { message: "repo must be owner/name" })),
+  repo: required("repo").pipe(Schema.decodeTo(UpstreamRepo)).annotateKey({ messageMissingKey: MISSING + "repo" }),
   /** Path of the skill folder within that repository. */
   path: required("path"),
   /** Full 40-character commit SHA the fork was copied from. */
   sha: required("sha")
     .check(Schema.isPattern(/^[0-9a-fA-F]{40}$/, { message: "sha must be 40 hex characters" }))
-    .pipe(Schema.decodeTo(Schema.String, SchemaTransformation.toLowerCase()))
+    .pipe(Schema.decodeTo(CommitSha, SchemaTransformation.toLowerCase()))
     .annotateKey({ messageMissingKey: MISSING + "sha" }),
 });
 export type Upstream = typeof Upstream.Type;
 
-export type UpstreamParse = { ok: true; upstream: Upstream } | { ok: false; problems: string[] };
-
 const FIELD_ORDER = ["repo", "path", "sha"];
-const decodeFields = Schema.decodeUnknownResult(Upstream, { errors: "all" });
+const decodeFields = Schema.decodeUnknownEffect(Upstream,{ errors: "all" });
 const flatten = SchemaIssue.makeFormatterStandardSchemaV1();
 
 /** Turn schema issues into one problem per field, missing fields first, then format errors in field order. */
@@ -48,11 +48,14 @@ function problemsOf(issue: SchemaIssue.Issue, fields: Record<string, string>): s
   return [...missing, ...invalid];
 }
 
-/** Parse the frontmatter of an `UPSTREAM.md`. Never throws; returns every problem found. */
-export function parseUpstream(text: string): UpstreamParse {
-  const fm = parseFrontmatter(text);
-  if (!fm) return { ok: false, problems: ["no frontmatter block"] };
-  const result = decodeFields(fm);
-  if (result._tag === "Success") return { ok: true, upstream: result.success };
-  return { ok: false, problems: problemsOf(result.failure.issue, fm) };
-}
+const NO_FRONTMATTER = ["no frontmatter block"];
+
+/** Decode the frontmatter of the `UPSTREAM.md` at `path` (the skill folder), reporting every problem found. */
+export const parseUpstream = (path: string, text: string): Effect.Effect<Upstream, InvalidUpstream> =>
+  Option.match(Option.fromNullishOr(parseFrontmatter(text)), {
+    onNone: () => Effect.fail(new InvalidUpstream({ path, problems: NO_FRONTMATTER })),
+    onSome: (fm) =>
+      decodeFields(fm).pipe(
+        Effect.mapError((e) => new InvalidUpstream({ path, problems: problemsOf(e.issue, fm) })),
+      ),
+  });

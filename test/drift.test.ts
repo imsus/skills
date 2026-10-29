@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import { runDrift } from "../src/drift/run";
 import { UpstreamApi, type CompareStatus } from "../src/drift/upstream-api";
+import { CommitSha } from "../src/ids";
 import { UpstreamUnreachable } from "../src/errors";
 import { RepoFs } from "../src/repo-fs";
 import { captureStdio } from "./helpers/layers";
@@ -25,7 +26,7 @@ function api(latest: string | ((repo: string, path: string) => string), status: 
         Effect.try({
           try: () => {
             calls.push(`latest ${repo}:${path}`);
-            return typeof latest === "function" ? latest(repo, path) : latest;
+            return CommitSha.make(typeof latest === "function" ? latest(repo, path) : latest);
           },
           catch: (e) => new UpstreamUnreachable({ repo, message: (e as Error).message }),
         }),
@@ -102,6 +103,18 @@ test("a fork with an invalid UPSTREAM.md is skipped with a stderr warning pointi
   expect(r.errs).toHaveLength(1);
   expect(r.errs[0]).toContain("skills/web/imsus-foo");
   expect(r.errs[0]).toContain("check");
+});
+
+test("a fork whose UPSTREAM.md is a directory is skipped with the same warning, not a crash", async () => {
+  const files = { ...category("web"), ...fork("web", "imsus-foo") };
+  delete files["skills/web/imsus-foo/UPSTREAM.md"];
+  tree = buildTree({ ...files, "skills/web/imsus-foo/UPSTREAM.md/x": "" });
+  const { upstream, calls } = api(SHA);
+  const r = await drift(upstream);
+  expect(r.code).toBe(0);
+  expect(calls).toEqual([]);
+  expect(r.errs).toHaveLength(1);
+  expect(r.errs[0]).toContain("skills/web/imsus-foo");
 });
 
 test("a recorded SHA newer than the path's last change is up to date", async () => {

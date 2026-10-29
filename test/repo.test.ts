@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { readRepo } from "../src/repo";
 import { RepoFs } from "../src/repo-fs";
 import { buildTree, category, type Tree } from "./helpers/tree";
@@ -22,15 +22,15 @@ test("finds categories, their metadata and skill folders, sorted", async () => {
     "skills/web/imsus-a/UPSTREAM.md": "---\n---\n",
   });
   const repo = await read();
-  expect(repo.categories.map((c) => c.name)).toEqual(["api", "web"]);
+  expect(repo.categories.map((c) => String(c.name))).toEqual(["api", "web"]);
   const web = repo.categories[1]!;
   expect(web.meta).toEqual({ _tag: "Loaded", description: "A category.", version: "1.0.0" });
-  expect(web.skills.map((s) => s.name)).toEqual(["imsus-a", "imsus-b"]);
+  expect(web.skills.map((s) => String(s.name))).toEqual(["imsus-a", "imsus-b"]);
   expect(web.skills[0]!.path).toBe("skills/web/imsus-a");
   expect(web.skills[0]!.files).toContain("UPSTREAM.md");
   expect(web.skills[0]!._tag).toBe("Fork");
   expect(web.skills[1]!._tag).toBe("Own");
-  expect(web.skills[1]!.skillMd).toContain("name: imsus-b");
+  expect(Option.getOrThrow(web.skills[1]!.skillMd)).toContain("name: imsus-b");
 });
 
 test("reports missing and unreadable category metadata", async () => {

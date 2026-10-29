@@ -34,6 +34,23 @@ test("non-40-hex sha fails", async () => {
   expect(r.stderr).toContain("[fork-upstream]");
 });
 
+test("an UPSTREAM.md that is a directory is a fork-upstream violation, not a crash", async () => {
+  const files = { ...category("web"), ...fork("web", "imsus-fork") };
+  delete files["skills/web/imsus-fork/UPSTREAM.md"];
+  tree = buildTree({ ...files, "skills/web/imsus-fork/UPSTREAM.md/x": "" });
+  const r = await runCli(["check"], tree.root);
+  expect(r.code).toBe(1);
+  expect(r.stderr).toContain("skills/web/imsus-fork: [fork-upstream]");
+});
+
+test("an empty UPSTREAM.md is a fork-upstream violation", async () => {
+  tree = buildTree({ ...category("web"), ...fork("web", "imsus-fork", { upstream: "" }) });
+  const r = await runCli(["check"], tree.root);
+  expect(r.code).toBe(1);
+  expect(r.stderr).toContain("[fork-upstream]");
+  expect(r.stderr).toContain("no frontmatter block");
+});
+
 test("own skill needs no LICENSE", async () => {
   tree = buildTree(category("web", ["imsus-own"]));
   expect((await runCli(["check"], tree.root)).code).toBe(0);

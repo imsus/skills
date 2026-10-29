@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import type { Command } from "../command";
 import { reportFsError } from "../report";
 import { readRepo, type Repo } from "../repo";
@@ -58,7 +58,7 @@ export const command: Command = {
       const expected = generateManifest(yield* readRepo);
       if (args.includes("--check")) {
         const actual = yield* fs.readText(MANIFEST_PATH);
-        if (actual === expected) {
+        if (Option.exists(actual, (text) => text === expected)) {
           yield* io.out(`${MANIFEST_PATH} is up to date.`);
           return 0;
         }

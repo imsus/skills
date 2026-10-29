@@ -1,13 +1,14 @@
 import { expect, test } from "bun:test";
 import { Effect } from "effect";
+import { CategoryName, CommitSha, SkillName, UpstreamRepo } from "../src/ids";
 import { syncDriftIssues } from "../src/drift/issues";
 import { decodeReport, encodeReport, type DriftEntry } from "../src/drift/shapes";
 import { memoryIssues } from "./helpers/layers";
 
-const A = "0123456789abcdef0123456789abcdef01234567";
-const B = "fedcba9876543210fedcba9876543210fedcba98";
+const A = CommitSha.make("0123456789abcdef0123456789abcdef01234567");
+const B = CommitSha.make("fedcba9876543210fedcba9876543210fedcba98");
 
-const drifted = (latest: string): DriftEntry["outcome"] => ({
+const drifted = (latest: CommitSha): DriftEntry["outcome"] => ({
   _tag: "Drifted",
   latestSha: latest,
   compareUrl: `https://github.com/someone/skills/compare/${A}...${latest}`,
@@ -15,8 +16,8 @@ const drifted = (latest: string): DriftEntry["outcome"] => ({
 
 function entry(outcome: DriftEntry["outcome"] = drifted(B)): DriftEntry {
   return {
-    skill: "imsus-foo", category: "web", path: "skills/web/imsus-foo",
-    upstream: { repo: "someone/skills", path: "skills/foo", sha: A },
+    skill: SkillName.make("imsus-foo"), category: CategoryName.make("web"), path: "skills/web/imsus-foo",
+    upstream: { repo: UpstreamRepo.make("someone/skills"), path: "skills/foo", sha: A },
     outcome,
   };
 }
@@ -37,10 +38,17 @@ test("a drifted fork opens exactly one issue naming the fork with the compare UR
 test("a second run updates the open issue instead of duplicating it", async () => {
   const tracker = memoryIssues();
   await sync(tracker, [entry()]);
-  const C = "1111111111111111111111111111111111111111";
+  const C = CommitSha.make("1111111111111111111111111111111111111111");
   await sync(tracker, [entry(drifted(C))]);
   expect(tracker.issues).toHaveLength(1);
   expect(tracker.issues[0]!.body).toContain(`...${C}`);
+});
+
+test("the open issues are listed once per sync, however many forks drifted", async () => {
+  const tracker = memoryIssues();
+  const other = { ...entry(), skill: SkillName.make("imsus-bar") };
+  await sync(tracker, [entry(), other, entry({ _tag: "Unreachable", error: "boom" })]);
+  expect(tracker.calls.listOpen).toBe(1);
 });
 
 test("an unreachable fork opens an issue with the error", async () => {

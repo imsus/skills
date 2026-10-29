@@ -13,8 +13,8 @@ export interface NewIssue {
 export class IssueClient extends Context.Service<
   IssueClient,
   {
-    /** The open issue with exactly this title, if any. */
-    findOpen(title: string): Effect.Effect<{ number: number } | null, IssueClientError>;
+    /** Every open drift issue, as `{ number, title }`. */
+    listOpen(): Effect.Effect<ReadonlyArray<OpenIssue>, IssueClientError>;
     create(issue: NewIssue): Effect.Effect<void, IssueClientError>;
     update(number: number, body: string): Effect.Effect<void, IssueClientError>;
   }
@@ -24,7 +24,9 @@ export class IssueClient extends Context.Service<
 }
 
 /** `gh issue list --json number,title` output (the edge). */
-const IssueList = Schema.fromJsonString(Schema.Array(Schema.Struct({ number: Schema.Int, title: Schema.String })));
+const OpenIssue = Schema.Struct({ number: Schema.Int, title: Schema.String });
+type OpenIssue = typeof OpenIssue.Type;
+const IssueList = Schema.fromJsonString(Schema.Array(OpenIssue));
 const decodeIssueList = Schema.decodeUnknownEffect(IssueList);
 
 function ghClient() {
@@ -39,17 +41,16 @@ function ghClient() {
       catch: (e) => new IssueClientError({ message: e instanceof Error ? e.message : String(e) }),
     });
 
-  const findOpen = (title: string) =>
-    Effect.gen(function* () {
-      const out = yield* gh(["issue", "list", "--label", DRIFT_LABEL, "--state", "open", "--limit", "1000", "--json", "number,title"]);
-      const issues = yield* decodeIssueList(out);
-      return issues.find((i) => i.title === title) ?? null;
-    }).pipe(Effect.catchTag("SchemaError", (e) => Effect.fail(new IssueClientError({ message: `unexpected gh output: ${e.message}` }))));
+  const listOpen = () =>
+    gh(["issue", "list", "--label", DRIFT_LABEL, "--state", "open", "--limit", "1000", "--json", "number,title"]).pipe(
+      Effect.flatMap(decodeIssueList),
+      Effect.catchTag("SchemaError", (e) => Effect.fail(new IssueClientError({ message: `unexpected gh output: ${e.message}` }))),
+    );
 
   const create = ({ title, body, labels }: NewIssue) =>
     gh(["issue", "create", "--title", title, "--body", body, ...labels.flatMap((l) => ["--label", l])]).pipe(Effect.asVoid);
 
   const update = (number: number, body: string) => gh(["issue", "edit", String(number), "--body", body]).pipe(Effect.asVoid);
 
-  return { findOpen, create, update };
+  return { listOpen, create, update };
 }

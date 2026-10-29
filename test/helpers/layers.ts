@@ -20,10 +20,15 @@ export interface FakeIssue extends NewIssue {
 /** Test layer for `IssueClient`: an in-memory tracker. Read `issues` after the run. */
 export function memoryIssues() {
   const issues: FakeIssue[] = [];
+  const calls = { listOpen: 0 };
   const layer = Layer.succeed(
     IssueClient,
     IssueClient.of({
-      findOpen: (title) => Effect.sync(() => issues.find((i) => i.title === title) ?? null),
+      listOpen: () =>
+        Effect.sync(() => {
+          calls.listOpen++;
+          return issues.map(({ number, title }) => ({ number, title }));
+        }),
       create: (issue) => Effect.sync(() => void issues.push({ number: issues.length + 1, ...issue })),
       update: (number, body) =>
         Effect.sync(() => {
@@ -31,5 +36,5 @@ export function memoryIssues() {
         }),
     }),
   );
-  return { layer, issues };
+  return { layer, issues, calls };
 }

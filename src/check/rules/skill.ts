@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import { parseFrontmatter } from "../../frontmatter";
 import { allSkills } from "../../repo";
 import type { Rule, Violation } from "../rule";
@@ -13,11 +14,11 @@ export const rule: Rule = (repo) => {
     if (!skill.name.startsWith(PREFIX)) {
       report("skill-prefix", `folder name "${skill.name}" must start with "${PREFIX}"`);
     }
-    if (skill.skillMd === null) {
+    if (Option.isNone(skill.skillMd)) {
       report("skill-md-missing", "folder has no SKILL.md");
       continue;
     }
-    const fm = parseFrontmatter(skill.skillMd) ?? {};
+    const fm = parseFrontmatter(skill.skillMd.value) ?? {};
     if (fm.name !== skill.name) {
       report("skill-name", `folder name "${skill.name}" must equal frontmatter name "${fm.name ?? ""}"`);
     }

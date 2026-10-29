@@ -1,19 +1,10 @@
-import { Array, Effect, Option } from "effect";
-import { reportFsError } from "../report";
-import { InvalidUpstream } from "../errors";
+import { Array, Effect, Match, Option } from "effect";
 import { allSkills, isFork, readRepo, type ForkSkill } from "../repo";
+import { reportFsError } from "../report";
 import { Stdio } from "../stdio";
-import { parseUpstream, UPSTREAM_FILE, type Upstream } from "../upstream";
+import { UPSTREAM_FILE, type Upstream } from "../upstream";
 import { encodeReport, type DriftEntry, type DriftOutcome } from "./shapes";
 import { UpstreamApi } from "./upstream-api";
-
-/** A fork's recorded upstream, or `InvalidUpstream` when its `UPSTREAM.md` does not validate. */
-const upstreamOf = (fork: ForkSkill) =>
-  Effect.gen(function* () {
-    const parsed = parseUpstream(fork.upstreamMd);
-    if (!parsed.ok) return yield* new InvalidUpstream({ path: fork.path, problems: parsed.problems });
-    return parsed.upstream;
-  });
 
 /**
  * Ask GitHub whether the upstream moved past the recorded SHA. The recorded
@@ -37,7 +28,7 @@ const outcomeOf = ({ repo, path, sha }: Upstream) =>
 /** One fork's drift entry, or none when its `UPSTREAM.md` is invalid (warned on stderr, skipped). */
 const driftOf = (fork: ForkSkill) =>
   Effect.gen(function* () {
-    const upstream = yield* upstreamOf(fork);
+    const upstream = yield* Effect.fromResult(fork.upstream);
     const outcome: DriftOutcome = yield* outcomeOf(upstream);
     return Option.some<DriftEntry>({ skill: fork.name, category: fork.category, path: fork.path, upstream, outcome });
   }).pipe(
@@ -52,14 +43,11 @@ const driftOf = (fork: ForkSkill) =>
 
 const describe = (e: DriftEntry): string => {
   const label = `${e.category}/${e.skill}`;
-  switch (e.outcome._tag) {
-    case "UpToDate":
-      return `${label}: up to date`;
-    case "Drifted":
-      return `${label}: drifted ${e.outcome.compareUrl}`;
-    case "Unreachable":
-      return `${label}: unreachable (${e.outcome.error})`;
-  }
+  return Match.valueTags(e.outcome, {
+    UpToDate: () => `${label}: up to date`,
+    Drifted: (o) => `${label}: drifted ${o.compareUrl}`,
+    Unreachable: (o) => `${label}: unreachable (${o.error})`,
+  });
 };
 
 /** Report drift for every fork. Exits 0 whenever the report completes. */
