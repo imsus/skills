@@ -1,0 +1,134 @@
+# Build the tooling on Effect, following the design-thinking method
+
+The Bun/TypeScript tooling (`check`, `manifest`, `drift` and the `drift-issues` script) is written on `effect` 4.1.0, and all new code follows the method in [Design Thinking](https://gist.github.com/r17x/90eb2f7be93932b5693753aedb09c01a): name the shapes, draw the happy path as a call graph, then add E, R and the Schema boundaries, so the code is the graph. Each command is an `Effect.gen` whose body is the happy path and whose `.pipe()` is the complete list of errors it handles. The things the tooling depends on are services (`RepoFs`, `Stdio`, `UpstreamApi`, `IssueClient`), so tests swap layers instead of passing fakes. Untrusted data is decoded with `Schema` where it enters: `category.json`, the `UPSTREAM.md` frontmatter fields, GitHub API JSON, `gh` CLI JSON and the `drift.json` input of `scripts/drift-issues.ts`. Only the core `effect` package is used (it carries `Schema`, `Context.Service` and `Layer` in v4), so there is no `@effect/cli` or `@effect/platform`, and the auto-discovered `src/commands/` dispatch is unchanged.
+
+## Shapes
+
+- **Category** has a `CategoryMeta` of `Missing`, `Unreadable` or `Loaded`. Malformed content is data, never an error, because the check rules report it.
+- **Skill** is `Own` or `Fork`. A `Fork` carries the text of its `UPSTREAM.md`, so rules stay pure.
+- **Upstream** is `{ repo, path, sha }`, decoded from the `UPSTREAM.md` frontmatter with `sha` lowercased.
+- **Violation** is `{ path, rule, message }`.
+- **DriftOutcome** is `UpToDate`, `Drifted` or `Unreachable`. `drift --json` keeps its flat wire shape (`outcome` as `up-to-date`, `drifted` or `unreachable`, plus nullable fields), and a Schema transformation maps it to and from the tagged union. A wire entry that contradicts its outcome, such as `drifted` without a compare URL, fails to decode.
+- **Errors** are tagged: `RepoFsError`, `CategoryJsonUnreadable`, `InvalidUpstream`, `UpstreamUnreachable`, `IssueClientError` and `DriftReportError`.
+
+## Errors
+
+- `UpstreamUnreachable` is an escape hatch for one fork. `drift` turns it into that fork's `Unreachable` outcome and goes on with the others.
+- `InvalidUpstream` is also per fork: `drift` warns on stderr and skips it, and `check` reports it as violations.
+- `RepoFsError` and `IssueClientError` are fatal for the command. Each command catches them in its `.pipe()` and exits 1.
+- A bug is a defect. It is never put in the E channel: a rule module that cannot be imported, or a report that fails to encode, dies.
+
+## Considered Options
+
+- **Keep the plain TypeScript with injected function arguments:** this was rejected because errors travel as thrown exceptions, the dependencies are threaded by hand, and each boundary does its own ad hoc parsing.
+- **Add `@effect/cli` and `@effect/platform`:** this was rejected because the v4 core already covers services, layers and Schema, and the existing auto-discovered subcommand dispatch and usage output must not change.
+
+## Consequences
+
+The CLI's observable behaviour is unchanged: subcommands, flags, stdout and stderr text, exit codes, the byte-exact manifest and the `drift --json` shape. Two edge cases are stricter because Schema now guards them: a `drift.json` entry with null upstream fields is rejected by `scripts/drift-issues.ts`, and a GitHub commit list that is not an array is reported as an unreachable upstream. Docs and PRs show call graphs in the indented `→` format below. New code that adds a dependency or a failure mode updates its graph here.
+
+## Call graphs
+
+### check
+
+Production:
+
+```ts
+bun run src/cli.ts check
+  → command check
+    → collectViolations
+      → readRepo
+        → RepoFs.layer(cwd)
+      → rules (category, fork, skill)
+    → Stdio.layer
+```
+
+Tests:
+
+```ts
+runCli(["check"])
+  → command check
+    → collectViolations
+      → readRepo
+        → RepoFs.layer(throwaway tree)
+      → rules (category, fork, skill)
+    → Stdio.layer
+```
+
+### manifest
+
+Production:
+
+```ts
+bun run src/cli.ts manifest [--check]
+  → command manifest
+    → readRepo
+      → RepoFs.layer(cwd)
+    → generateManifest
+    → RepoFs.layer(cwd)
+    → Stdio.layer
+```
+
+Tests:
+
+```ts
+runCli(["manifest"])
+  → command manifest
+    → readRepo
+      → RepoFs.layer(throwaway tree)
+    → generateManifest
+    → RepoFs.layer(throwaway tree)
+    → Stdio.layer
+```
+
+### drift
+
+Production:
+
+```ts
+bun run src/cli.ts drift [--json]
+  → command drift
+    → runDrift
+      → readRepo
+        → RepoFs.layer(cwd)
+      → driftOf (per fork, sequential)
+        → upstreamOf
+        → outcomeOf
+          → UpstreamApi.layerGithub
+      → encodeReport
+      → Stdio.layer
+```
+
+Tests:
+
+```ts
+runDrift({ json })
+  → readRepo
+    → RepoFs.layer(throwaway tree)
+  → driftOf (per fork, sequential)
+    → upstreamOf
+    → outcomeOf
+      → fake UpstreamApi layer
+  → encodeReport
+  → captureStdio
+```
+
+### drift-issues script
+
+Production:
+
+```ts
+bun run scripts/drift-issues.ts <drift.json>
+  → syncDriftIssuesFromFile
+    → RepoFs.layer(cwd)
+    → decodeReport
+    → syncDriftIssues
+      → IssueClient.layerGh
+```
+
+Tests:
+
+```ts
+syncDriftIssues(entries)
+  → memoryIssues layer
+```
