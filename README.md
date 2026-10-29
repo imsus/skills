@@ -40,7 +40,7 @@ bun run src/cli.ts check   # validate the repo only (also: bun run check)
 bun test
 ```
 
-`bun run verify` is the one local command that matches CI. CI runs it (typecheck, `bun test`, `check` and `manifest --check`) on every push and pull request.
+`bun run verify` is the one local command that matches CI. CI runs it (typecheck, `bun test`, `check`, `manifest --check` and `lint:workflows`) on every push and pull request. `lint:workflows` runs actionlint when it is on your PATH and skips with a notice otherwise; CI installs it and also runs it as its own step.
 
 ### Extending the CLI
 
