@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "check": "bun run src/cli.ts check",
+    "manifest": "bun run src/cli.ts manifest",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },

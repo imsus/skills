@@ -61,3 +61,16 @@ export function category(name: string, skills: string[] = []): Files {
   for (const skill of skills) files[`skills/${name}/${skill}/SKILL.md`] = skillMd(skill);
   return files;
 }
+
+/** A category with explicit metadata, for tests that need distinct versions. */
+export function categoryWith(
+  name: string,
+  skills: string[],
+  description: string,
+  version: string,
+): Files {
+  return {
+    ...category(name, skills),
+    [`skills/${name}/category.json`]: categoryJson(description, version),
+  };
+}

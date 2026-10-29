@@ -1,0 +1,9 @@
+{
+  "name": "imsus",
+  "owner": {
+    "name": "Imam Susanto",
+    "url": "https://github.com/imsus"
+  },
+  "description": "Imam Susanto's curated agent skills, one plugin per category.",
+  "plugins": []
+}
